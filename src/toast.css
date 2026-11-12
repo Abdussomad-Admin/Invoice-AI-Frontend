@@ -1,0 +1,10 @@
+.ia-toast{position:fixed;z-index:1200;top:20px;right:22px;display:flex;align-items:flex-start;gap:12px;width:min(420px,calc(100vw - 32px));padding:14px 15px;border:1px solid #dce8f5;border-radius:14px;background:rgba(255,255,255,.98);box-shadow:0 16px 46px #15345b24;color:#173153;animation:ia-toast-in .22s ease-out}
+.ia-toast-icon{width:32px;height:32px;flex:0 0 32px;display:grid;place-items:center;border-radius:10px;background:#edf5ff;color:#0874f9}
+.ia-toast-copy{display:grid;gap:3px;min-width:0;padding-top:1px;font:12px/1.5 'DM Sans',Arial,sans-serif;color:#536780;overflow-wrap:anywhere}
+.ia-toast-copy b{font-size:13px;color:#142d4e}
+.ia-toast-success{border-color:#cdeee1}.ia-toast-success .ia-toast-icon{background:#e9f9f0;color:#08a968}
+.ia-toast-error{border-color:#f4d4d0}.ia-toast-error .ia-toast-icon{background:#fff0ef;color:#cf493e}
+.ia-toast-close{width:28px;height:28px;flex:0 0 28px;margin:-4px -5px 0 auto;border:0;border-radius:8px;background:transparent;color:#8292a8;display:grid;place-items:center;cursor:pointer}
+.ia-toast-close:hover{background:#f1f5fa;color:#203958}
+@keyframes ia-toast-in{from{opacity:0;transform:translateY(-7px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:600px){.ia-toast{top:10px;right:10px;width:calc(100vw - 20px)}}

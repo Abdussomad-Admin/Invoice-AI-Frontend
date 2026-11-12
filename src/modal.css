@@ -1,0 +1,17 @@
+.ws-modal-backdrop{position:fixed;inset:0;z-index:1100;display:grid;place-items:center;padding:22px;background:rgba(9,25,48,.52);backdrop-filter:blur(5px);animation:ws-modal-fade .18s ease-out}
+.ws-modal{width:min(640px,100%);max-height:min(88dvh,820px);overflow:auto;border:1px solid #e2eaf4;border-radius:20px;background:#fff;box-shadow:0 28px 90px #06172e55;animation:ws-modal-rise .2s ease-out}
+.ws-modal{scrollbar-width:thin;scrollbar-color:#3d587c transparent;scrollbar-gutter:stable}
+.ws-modal::-webkit-scrollbar{width:6px}
+.ws-modal::-webkit-scrollbar-track{background:transparent}
+.ws-modal::-webkit-scrollbar-thumb{border-radius:10px;background:#3d587c}
+.ws-modal::-webkit-scrollbar-thumb:hover{background:#58769c}
+.ws-modal-head{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:13px;padding:19px 22px;border-bottom:1px solid #edf1f6;background:rgba(255,255,255,.97);backdrop-filter:blur(8px)}
+.ws-modal-mark{width:42px;height:42px;flex:0 0 42px;display:grid;place-items:center;border-radius:13px;background:linear-gradient(145deg,#e8f2ff,#e8fbf2);color:#0874f9}
+.ws-modal-head h2{margin:0;color:#142b4a;font:800 17px Manrope,'DM Sans',Arial,sans-serif;letter-spacing:-.35px}
+.ws-modal-head p{margin:4px 0 0;color:#7788a0;font:11px/1.45 'DM Sans',Arial,sans-serif}
+.ws-modal-close{width:34px;height:34px;flex:0 0 34px;margin-left:auto;display:grid;place-items:center;border:1px solid #e6edf5;border-radius:10px;background:#fff;color:#62748b;cursor:pointer;transition:.16s}
+.ws-modal-close:hover{border-color:#bed5f4;background:#f3f8ff;color:#0874f9;transform:rotate(4deg)}
+.ws-modal-body{padding:22px}.ws-modal-body .ws-form-grid{gap:15px}.ws-modal-body .ws-form-grid label{font-size:11px}.ws-modal-body .ws-form-grid input,.ws-modal-body .ws-form-grid select{min-height:42px;border-radius:10px;font-size:12px}.ws-modal-body .ws-form-actions{padding-top:15px;border-top:1px solid #edf1f6}.ws-modal-body .ws-button{min-height:39px;padding:0 16px;border-radius:10px;font-size:12px}
+@keyframes ws-modal-fade{from{opacity:0}to{opacity:1}}@keyframes ws-modal-rise{from{opacity:0;transform:translateY(9px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(max-width:620px){.ws-modal-backdrop{padding:10px;align-items:end}.ws-modal{max-height:92dvh;border-radius:18px 18px 12px 12px}.ws-modal-head{padding:15px}.ws-modal-body{padding:15px}.ws-modal-body .ws-form-grid{grid-template-columns:1fr;gap:12px}}
+@media(prefers-reduced-motion:reduce){.ws-modal-backdrop,.ws-modal,.ia-toast{animation:none}}
