@@ -74,6 +74,7 @@ function App(){
  const routeToPage={"/":"home","/features":"features","/how-it-works":"how-it-works","/pricing":"pricing","/about":"about","/contact":"contact","/login":"login","/signup":"signup","/register":"signup","/verify-email":"verify-email","/forgot-password":"forgot-password","/reset-password":"reset-password"};
  const [route,setRoute]=useState(location.pathname); const page=routeToPage[route]||"home"; const paymentToken=new URLSearchParams(location.search).get("pay");
  useEffect(()=>{const pop=()=>setRoute(location.pathname);addEventListener("popstate",pop);return()=>removeEventListener("popstate",pop)},[]);
+ useEffect(()=>{const expire=()=>{if(location.pathname.startsWith("/app")){history.replaceState({},"","/login");setRoute("/login");scrollTo(0,0)}};addEventListener("invoice-ai-session-expired",expire);return()=>removeEventListener("invoice-ai-session-expired",expire)},[]);
  const navigate=(next)=>{const path=next.startsWith("/")?next:({home:"/",features:"/features","how-it-works":"/how-it-works",pricing:"/pricing",about:"/about",contact:"/contact",login:"/login",signup:"/signup"}[next]||`/${next}`);history.pushState({},"",path);setRoute(path);scrollTo(0,0)};
  if(route.startsWith("/app")){if(!sessionStorage.getItem("invoice-ai-token")){history.replaceState({},"","/login");return <AuthPage mode="login" setPage={navigate}/>;}return <Workspace path={route} navigate={navigate}/>;}
  if(paymentToken)return <PublicInvoicePayment token={paymentToken}/>;
