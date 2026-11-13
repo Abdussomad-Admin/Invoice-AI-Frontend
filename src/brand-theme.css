@@ -433,3 +433,15 @@ body:has(.nav) :where(button,a,input,select,textarea):focus-visible { outline-co
   .auth-shell.signup-mode .auth-dashboard { display:none; }
   .auth-shell.signup-mode .story-points { max-width:100%; }
 }
+
+/* Keep the split auth layout from letting the story column collapse on tablets. */
+@media(min-width:701px) and (max-width:1000px) {
+  .auth-shell.login-mode { grid-template-columns:minmax(320px,.9fr) minmax(0,1.1fr); }
+  .auth-shell.signup-mode { grid-template-columns:minmax(300px,.9fr) minmax(440px,1.1fr); }
+  .auth-shell .auth-story { padding-left:clamp(22px,3vw,34px); padding-right:clamp(20px,2.8vw,30px); }
+  .auth-shell.login-mode .story-copy { max-width:100%; }
+  .auth-shell.login-mode .auth-dashboard { width:96%; right:-4%; bottom:7%; }
+  .auth-shell.login-mode .auth-dashboard img { max-height:37vh; }
+  .auth-shell.login-mode .auth-card { max-width:560px; }
+}
+.auth-shell .auth-topline>button:focus-visible { outline:2px solid #8c43f8; outline-offset:3px; box-shadow:none; }
