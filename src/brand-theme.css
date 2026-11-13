@@ -374,6 +374,13 @@ body:has(.nav) :where(button,a,input,select,textarea):focus-visible { outline-co
 .auth-shell .auth-card,
 .auth-shell.signup-mode .auth-card,
 .auth-shell.utility-mode .auth-card { border-color: #dfd2ff; box-shadow: 0 18px 48px #3210641c; }
+.auth-shell.login-mode .auth-card {
+  padding: clamp(18px, 2.4vw, 28px);
+  border: 1px solid #dfd2ff;
+  border-radius: 20px;
+  background: linear-gradient(145deg, #fff 0%, #fcfaff 100%);
+  box-shadow: 0 18px 48px #3210641c;
+}
 .auth-shell .auth-title h2 { color: #170a45; }
 .auth-shell .auth-title p,
 .auth-shell .auth-welcome { color: #675b82; }
@@ -426,6 +433,7 @@ body:has(.nav) :where(button,a,input,select,textarea):focus-visible { outline-co
 .public-pay-note { background: #efe8ff; color: #39235f; }
 
 @media(max-width:700px) {
+  .auth-shell.login-mode .auth-card { padding: 20px 16px; border-radius: 18px; }
   body:has(.nav) .hero { background: radial-gradient(ellipse at 50% 6%,#5723c988,transparent 58%),linear-gradient(150deg,#0d0639,#29106b 78%,#451ba0); }
   .auth-shell .auth-story,
   .auth-shell.login-mode .auth-story,
