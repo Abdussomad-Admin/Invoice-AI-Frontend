@@ -262,3 +262,25 @@
 .workspace .ws-extraction-line input:focus,.workspace .ws-extraction-settings input:focus{border-color:#7952dd;outline:none;box-shadow:0 0 0 3px #7952dd1c}
 .workspace .ws-extraction-approval>.ws-button{min-height:42px;justify-self:start}
 @media(max-width:620px){.workspace .ws-extraction-lines .ws-card-title>button{width:100%;justify-content:center}}
+.workspace .ws-extraction-panel{padding:24px;border-color:#e6def3;border-radius:16px;background:linear-gradient(145deg,#fff 0%,#fcfbff 100%)}
+.workspace .ws-extraction-panel>h2{margin:0;color:#241a4d;font-size:19px;letter-spacing:-.35px}
+.workspace .ws-extraction-panel>.ws-muted{margin-top:6px;font-size:12px;line-height:1.55}
+.workspace .ws-extraction-load{grid-template-columns:minmax(0,1fr);gap:12px;margin-top:18px}
+.workspace .ws-extraction-load>input{width:100%;min-height:48px;padding:0 14px;border:1px solid #ded6ef;border-radius:10px;background:#fff;color:#2b224f;font:500 12px 'DM Sans',Arial;outline:none;box-shadow:0 2px 5px #32206f08}
+.workspace .ws-extraction-load>input::placeholder{color:#9992ad}
+.workspace .ws-extraction-load>input:focus{border-color:#7952dd;box-shadow:0 0 0 3px #7952dd1c}
+.workspace .ws-extraction-load>div{display:flex;flex-wrap:wrap;gap:9px}
+.workspace .ws-extraction-load .ws-button{min-height:40px;padding:0 15px}
+.workspace .ws-extraction-documents{padding:22px;border-color:#e6def3;border-radius:16px}
+.workspace .ws-extraction-documents .ws-card-title{align-items:center;margin-bottom:14px}
+.workspace .ws-extraction-documents .ws-card-title h2{font-size:16px;color:#241a4d}
+.workspace .ws-extraction-documents .ws-card-title .ws-muted{max-width:580px;font-size:11px;line-height:1.5}
+.workspace .ws-extraction-documents .ws-search{min-height:40px;border-color:#e2dcef;border-radius:9px}
+.workspace .ws-extraction-documents .ws-table-wrap{overflow-x:auto;border:1px solid #ece7f5;border-radius:11px}
+.workspace .ws-extraction-documents .ws-table-wrap table{min-width:850px}
+.workspace .ws-extraction-documents .ws-table-wrap th{padding:12px 13px;background:#f8f6fd;color:#776f96}
+.workspace .ws-extraction-documents .ws-table-wrap td{padding:13px;color:#354563}
+.workspace .ws-extraction-documents .ws-row-action{border-color:#e2dcef;color:#6840d4}
+.workspace .ws-extraction-documents .ws-row-action:hover{border-color:#cbbced;background:#f8f5ff;color:#4e2db1}
+.workspace .ws-extraction-panel .ws-detail{margin-top:20px;border-color:#e7e0f3;border-radius:13px;background:#fbfaff}
+@media(max-width:700px){.workspace .ws-extraction-panel,.workspace .ws-extraction-documents{padding:16px}.workspace .ws-extraction-documents .ws-card-title{align-items:stretch}.workspace .ws-extraction-documents .ws-search{width:100%}}
