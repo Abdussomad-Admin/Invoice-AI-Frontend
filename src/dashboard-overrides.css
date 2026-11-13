@@ -50,9 +50,9 @@
 .ws-sidebar nav{scrollbar-width:thin;scrollbar-color:#3d587c transparent}
 .ws-sidebar nav::-webkit-scrollbar{width:6px}.ws-sidebar nav::-webkit-scrollbar-track{background:transparent}.ws-sidebar nav::-webkit-scrollbar-thumb{border-radius:10px;background:#3d587c}
 .workspace .ws-content{scrollbar-width:thin;scrollbar-color:#21164e #eeeaf7}
-.workspace .ws-content::-webkit-scrollbar{width:10px}
+.workspace .ws-content::-webkit-scrollbar{width:6px}
 .workspace .ws-content::-webkit-scrollbar-track{background:#eeeaf7}
-.workspace .ws-content::-webkit-scrollbar-thumb{border:2px solid #eeeaf7;border-radius:10px;background:#21164e}
+.workspace .ws-content::-webkit-scrollbar-thumb{border:1px solid #eeeaf7;border-radius:10px;background:#21164e}
 .workspace .ws-content::-webkit-scrollbar-thumb:hover{background:#38247a}
 .workspace .ws-card-title>.ws-button{display:inline-flex;width:auto;height:auto;min-height:38px;padding:9px 14px;border:1px solid #e2dcef;border-radius:9px;background:#fff;color:#493486;font:700 11px 'DM Sans',Arial;white-space:nowrap;flex:0 0 auto}
 .ws-table-customers table{min-width:0;table-layout:fixed}
