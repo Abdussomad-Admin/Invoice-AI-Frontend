@@ -283,4 +283,11 @@
 .workspace .ws-extraction-documents .ws-row-action{border-color:#e2dcef;color:#6840d4}
 .workspace .ws-extraction-documents .ws-row-action:hover{border-color:#cbbced;background:#f8f5ff;color:#4e2db1}
 .workspace .ws-extraction-panel .ws-detail{margin-top:20px;border-color:#e7e0f3;border-radius:13px;background:#fbfaff}
+.workspace .ws-extraction-identity{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:16px;border:1px solid #e7e0f3;border-radius:13px;background:#fff}
+.workspace .ws-extraction-identity label{display:grid;gap:7px;color:#51476e;font-size:10px;font-weight:700}
+.workspace .ws-extraction-identity input,.workspace .ws-extraction-identity select{width:100%;min-width:0;min-height:42px;padding:9px 11px;border:1px solid #e2dcef;border-radius:9px;background:#fff;color:#2b224f;font:500 11px 'DM Sans',Arial;outline:none}
+.workspace .ws-extraction-identity input:focus,.workspace .ws-extraction-identity select:focus{border-color:#7952dd;box-shadow:0 0 0 3px #7952dd1c}
+.workspace .ws-extraction-identity small{color:#827b98;font-size:9px;font-weight:400;line-height:1.45}
+.workspace .ws-draft-bill-correction{margin:14px 0}
+@media(max-width:620px){.workspace .ws-extraction-identity{grid-template-columns:1fr;padding:13px}}
 @media(max-width:700px){.workspace .ws-extraction-panel,.workspace .ws-extraction-documents{padding:16px}.workspace .ws-extraction-documents .ws-card-title{align-items:stretch}.workspace .ws-extraction-documents .ws-search{width:100%}}
