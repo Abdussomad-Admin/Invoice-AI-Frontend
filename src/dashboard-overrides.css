@@ -330,3 +330,19 @@
 .workspace .ws-draft-bill-correction{margin:14px 0}
 @media(max-width:620px){.workspace .ws-extraction-identity{grid-template-columns:1fr;padding:13px}}
 @media(max-width:700px){.workspace .ws-extraction-panel,.workspace .ws-extraction-documents{padding:16px}.workspace .ws-extraction-documents .ws-card-title{align-items:stretch}.workspace .ws-extraction-documents .ws-search{width:100%}}
+
+/* Keep the assistant discoverable without taking it out of Reports. */
+.workspace .ws-sidebar nav .ws-ai-sidebar-link{display:flex;align-items:center;gap:10px;width:100%;margin:4px 0 14px;padding:11px 10px;border:1px solid #493482;border-radius:11px;background:linear-gradient(115deg,#2b1d62,#352273);color:#f5f0ff;white-space:normal;text-align:left}
+.workspace .ws-sidebar nav .ws-ai-sidebar-link:hover,.workspace .ws-sidebar nav .ws-ai-sidebar-link.active{background:linear-gradient(115deg,#392477,#4a2d91);border-color:#8060d5;box-shadow:0 6px 18px #120b3229}
+.ws-ai-sidebar-icon{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border-radius:10px;background:#6542b7;color:#e2d3ff}
+.ws-ai-sidebar-icon svg{width:17px;height:17px}
+.ws-ai-sidebar-link>span:nth-child(2){display:grid;gap:3px;min-width:0;flex:1}
+.ws-ai-sidebar-link b{font-size:10px;font-weight:800}
+.ws-ai-sidebar-link small{color:#c2b6e2;font-size:9px;font-weight:500}
+.ws-ai-sidebar-link>svg{width:15px;height:15px;color:#c9b5ff}
+.workspace .ws-topbar .ws-ai-top-link{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:35px;padding:0 12px;border:1px solid #ded3fa;border-radius:10px;background:#f7f3ff;color:#5b35ba;font:800 11px 'DM Sans',Arial;cursor:pointer;transition:background .16s,border-color .16s,transform .16s}
+.workspace .ws-topbar .ws-ai-top-link:hover{background:#eee7ff;border-color:#bca6f1;transform:translateY(-1px)}
+.workspace .ws-topbar .ws-ai-top-link svg{width:16px;height:16px}
+.workspace .ws-topbar .ws-ai-top-link:focus-visible,.workspace .ws-sidebar nav .ws-ai-sidebar-link:focus-visible{outline:3px solid #9a7ae8;outline-offset:2px}
+@media(max-width:620px){.workspace .ws-sidebar nav .ws-ai-sidebar-link{width:auto;min-width:190px;flex:0 0 auto;margin:0;padding:7px 9px}.workspace .ws-ai-sidebar-icon{width:30px;height:30px;flex-basis:30px}.workspace .ws-sidebar nav .ws-ai-sidebar-link>svg{display:block}.workspace .ws-topbar{padding:0 10px}.workspace .ws-topbar>div{gap:7px}.workspace .ws-topbar .ws-ai-top-link{min-height:32px;padding:0 9px;font-size:10px}}
+@media(max-width:380px){.workspace .ws-topbar .ws-ai-top-link span{display:none}.workspace .ws-topbar .ws-ai-top-link{width:32px;padding:0}}
