@@ -489,6 +489,7 @@ function SupplierInvoiceUpload({ busy, onUpload }) {
 export default function Workspace({ path, navigate }) {
   const notificationPrefsKey = `invoice-ai-notification-preferences:${sessionStorage.getItem("invoice-ai-organization") || "default"}`;
   const [accountType, setAccountType] = useState(null);
+  const [statementFile, setStatementFile] = useState(null);
   const [baseCurrencyCode, setBaseCurrencyCode] = useState("NGN");
   const [billCurrencyCode, setBillCurrencyCode] = useState("NGN");
   const [showArchived, setShowArchived] = useState(false);
@@ -544,17 +545,18 @@ export default function Workspace({ path, navigate }) {
         <div className="ws-card ws-money-hero compact"><div className="ws-money-hero-icon"><Upload/></div><div className="ws-money-hero-copy"><span className="ws-money-eyebrow">BANK STATEMENTS</span><h2>Bring your bank activity into Invoice AI</h2><p>Upload a statement file and we’ll help match its deposits and withdrawals to the payments you recorded.</p></div></div>
         <section className="ws-card ws-bank-import-card"><div className="ws-bank-step-list"><div className="ws-bank-step active"><i>1</i><span><b>Choose a statement</b><small>CSV or Excel file</small></span></div><div className="ws-bank-step"><i>2</i><span><b>Review transactions</b><small>Check the imported lines</small></span></div><div className="ws-bank-step"><i>3</i><span><b>Match payments</b><small>Connect bank lines to records</small></span></div></div>
           <div className="ws-bank-upload-area"><div className="ws-bank-upload-icon"><FileText/></div><h3>Select your bank statement</h3><p>Choose a CSV or Excel file downloaded from your bank. We’ll check it before saving the transactions.</p><form className="ws-bank-upload-form" onSubmit={async e => {
-            e.preventDefault(); const form = new FormData(); form.append("file", e.currentTarget.elements.file.files[0]); setBusy(true); setError("");
+            e.preventDefault(); const target = e.currentTarget; const file = target.elements.file.files[0]; if (!file) return; const form = new FormData(); form.append("file", file); setBusy(true); setError("");
             try {
               const result = await api("/api/bank-statements/import", { method: "POST", body: form });
               if (!result.batchId) { setAnswer(`We checked ${result.rowsRead} rows but couldn’t import any transactions. Review the file and try again.`); return; }
               setBatchId(result.batchId); sessionStorage.setItem("invoice-ai-bank-batch", result.batchId);
               const details = await api(`/api/bank-statements/${result.batchId}`); setBatchDetails(details);
               setAnswer(`Imported ${result.imported} transactions. Review them and match the ones you recognize.`);
+              setStatementFile(null); target.reset();
               navigate("/app/bank-reconciliation");
             } catch (x) { setError(x.message); }
             finally { setBusy(false); }
-          }}><label className="ws-file-picker">Choose statement file<input name="file" type="file" accept=".csv,.xlsx" required/></label><button className="ws-button primary" disabled={busy}>{busy ? "Checking your statement…" : "Import statement"}</button></form><small className="ws-bank-file-note">You can upload a CSV or Excel file, up to 5 MB. Your bank keeps the original statement.</small></div>
+          }}><label className={`ws-bank-file-picker${statementFile ? " selected" : ""}`}><input className="ws-bank-file-input" name="file" type="file" accept=".csv,.xlsx" required onChange={e=>setStatementFile(e.target.files?.[0]||null)}/><span className="ws-bank-file-copy"><b>{statementFile?.name||"Choose a bank statement"}</b><small>{statementFile ? `${(statementFile.size/1024).toFixed(0)} KB · Ready to import` : "CSV or Excel file · up to 5 MB"}</small></span><span className="ws-bank-browse"><Upload/>Browse files</span></label><button className="ws-button primary" disabled={busy||!statementFile}>{busy ? "Checking your statement…" : "Import statement"}</button></form><small className="ws-bank-file-note">Your file is checked before transactions are imported. Your original statement stays with your bank.</small></div>
           <details className="ws-bank-format"><summary>What if my bank file looks different?</summary><p>We can read a simple CSV with these columns: <b>TransactionDate, Description, Amount, CurrencyCode</b>. Add <b>Reference</b> if your bank provides one. For money received, enter a positive amount; for money leaving your account, enter a negative amount.</p><div className="ws-bank-format-actions"><button className="ws-button secondary" type="button" onClick={()=>{const file=new Blob(["TransactionDate,Description,Amount,CurrencyCode,Reference\r\n"],{type:"text/csv;charset=utf-8"});const url=URL.createObjectURL(file);const link=document.createElement("a");link.href=url;link.download="invoice-ai-bank-statement-template.csv";link.click();URL.revokeObjectURL(url)}}><FileText/> Download a blank CSV template</button><button className="ws-text-button" type="button" onClick={()=>navigate("/app/help")}>Get help preparing a statement</button></div></details>
           {answer&&<div className="ws-money-inline-success" role="status"><CheckCircle2/>{answer}</div>}
         </section>
