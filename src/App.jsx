@@ -61,9 +61,9 @@ function AuthPage({mode,setPage}){
 function PublicInvoicePayment({token}){
  const [invoice,setInvoice]=useState(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState("");
  const reference=new URLSearchParams(location.search).get("reference");
- const load=async()=>{try{setInvoice(await api(`/api/public/invoices/${encodeURIComponent(token)}`));setError("")}catch(e){setError(e.message)}finally{setLoading(false)}};
- useEffect(()=>{load()},[token]);
- useEffect(()=>{if(!reference)return;let attempts=0;const timer=setInterval(async()=>{attempts++;await load();if(attempts>=8)clearInterval(timer)},3000);return()=>clearInterval(timer)},[reference,token]);
+ const load=async(confirmPayment=false)=>{try{const base=`/api/public/invoices/${encodeURIComponent(token)}`;const endpoint=confirmPayment&&reference?`${base}/confirm?reference=${encodeURIComponent(reference)}`:base;setInvoice(await api(endpoint,confirmPayment&&reference?{method:"POST"}:{}));setError("")}catch(e){setError(e.message)}finally{setLoading(false)}};
+ useEffect(()=>{load(Boolean(reference))},[token,reference]);
+ useEffect(()=>{if(!reference)return;let attempts=0;const timer=setInterval(async()=>{attempts++;await load(true);if(attempts>=8)clearInterval(timer)},3000);return()=>clearInterval(timer)},[reference,token]);
  const pay=async()=>{setBusy(true);setError("");try{const result=await api(`/api/public/invoices/${encodeURIComponent(token)}/checkout`,{method:"POST"});location.assign(result.authorizationUrl)}catch(e){setError(e.message);setBusy(false)}};
  if(loading)return <main className="public-pay"><section className="public-pay-card"><span className="public-pay-mark"><FileText/></span><p>Loading invoice details…</p></section></main>;
  if(!invoice)return <main className="public-pay"><section className="public-pay-card"><h1>Invoice unavailable</h1><p>{error||"This payment link may have expired or is invalid."}</p><a href="/">Return to Invoice AI</a></section></main>;
