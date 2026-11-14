@@ -760,6 +760,7 @@ export default function Workspace({ path, navigate }) {
   const [forecast, setForecast] = useState(null);
   const [forecastLoading, setForecastLoading] = useState(false);
   const [forecastError, setForecastError] = useState("");
+  const modalRef = useRef(null);
   useEffect(() => { api("/api/organization").then(org => { setAccountType(org.accountType === 0 ? "Freelancer" : org.accountType || "Organization"); setBaseCurrencyCode(org.baseCurrencyCode || "NGN"); if (org.isOnboardingComplete === false && path !== "/app/onboarding") navigate("/app/onboarding"); }).catch(() => setAccountType("Organization")); }, []);
   useEffect(() => { if (accountType === "Freelancer" && ["/app/team", "/app/invitations"].includes(path)) navigate("/app"); }, [accountType, path, navigate]);
   const [data, setData] = useState(null), [error, setError] = useState(""), [toast, setToast] = useState(null), [loading, setLoading] = useState(true), [showForm, setShowForm] = useState(false), [editingRecord, setEditingRecord] = useState(null), [question, setQuestion] = useState(""), [answer, setAnswer] = useState(""), [busy, setBusy] = useState(false), [query, setQuery] = useState(""), [invoiceId, setInvoiceId] = useState(""), [invoiceRecord, setInvoiceRecord] = useState(null), [invoicePayments,setInvoicePayments]=useState([]), [invoiceCreditNotes,setInvoiceCreditNotes]=useState([]), [billId,setBillId]=useState(""), [billRecord,setBillRecord]=useState(null), [billPayments,setBillPayments]=useState([]), [pdfUrl,setPdfUrl]=useState(""), [documentId, setDocumentId] = useState(""), [extraction, setExtraction] = useState(null), [batchId, setBatchId] = useState(()=>sessionStorage.getItem("invoice-ai-bank-batch") || ""), [batchDetails, setBatchDetails] = useState(null), [suggestions, setSuggestions] = useState({}), [notificationPrefs, setNotificationPrefs] = useState(()=>JSON.parse(localStorage.getItem(notificationPrefsKey)||"{\"overdue\":true,\"productUpdates\":false}"));
@@ -787,7 +788,36 @@ export default function Workspace({ path, navigate }) {
     finally { setForecastLoading(false); }
   }, []);
   useEffect(() => { setShowForm(false); setEditingRecord(null); refresh(); }, [path, refresh]);
-  useEffect(() => { if(!showForm) return; const closeOnEscape = e => { if(e.key === "Escape") { setShowForm(false); setEditingRecord(null); } }; document.addEventListener("keydown",closeOnEscape); document.body.style.overflow="hidden"; return () => { document.removeEventListener("keydown",closeOnEscape); document.body.style.overflow=""; }; }, [showForm]);
+  useEffect(() => {
+    if (!showForm) return undefined;
+    const previousFocus = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const focusFrame = requestAnimationFrame(() => {
+      const firstField = modalRef.current?.querySelector("input:not([type=hidden]), select, textarea, button");
+      (firstField || modalRef.current)?.focus();
+    });
+    const manageDialogKeys = event => {
+      if (event.key === "Escape") {
+        setShowForm(false);
+        setEditingRecord(null);
+        return;
+      }
+      if (event.key !== "Tab" || !modalRef.current) return;
+      const focusable = [...modalRef.current.querySelectorAll('a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])')];
+      if (!focusable.length) { event.preventDefault(); modalRef.current.focus(); return; }
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", manageDialogKeys);
+    return () => {
+      cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", manageDialogKeys);
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [showForm]);
   useEffect(() => { if(["/app/reports","/app/financial-health"].includes(path)) loadReportExtras(data?.period?.from,data?.period?.to); }, [path,data?.period?.from,data?.period?.to,loadReportExtras]);
   useEffect(() => { if(path === "/app/financial-health") loadForecast(); }, [path,loadForecast]);
   useEffect(() => { if(path==="/app/invoice-detail"&&invoiceId&&!invoiceRecord?.lines) api(`/api/invoices/${invoiceId}`).then(setInvoiceRecord).catch(e=>setError(e.message)); }, [path,invoiceId]);
@@ -811,7 +841,7 @@ export default function Workspace({ path, navigate }) {
       {!isOnline && <div className="ws-connectivity-banner" role="status"><span aria-hidden="true"/><div><b>You’re offline</b><small>Some workspace features need internet. New invoices can be saved in this tab and submitted when you reconnect.</small></div></div>}
       {error && <Toast type="error" title="Something needs your attention" onClose={() => setError("")}>{error}</Toast>}
       {toast && <Toast type={toast.type} title={toast.title} onClose={() => setToast(null)}>{toast.message}</Toast>}
-      {showForm && <div className="ws-modal-backdrop" onMouseDown={e => {if(e.target===e.currentTarget){setShowForm(false);setEditingRecord(null)}}}><section className="ws-modal" role="dialog" aria-modal="true" aria-labelledby="ws-modal-title"><div className="ws-modal-head"><span className="ws-modal-mark"><FileText size={19}/></span><div><h2 id="ws-modal-title">{editingRecord ? `Edit ${addKind}` : path === "/app/supplier-invoices" ? "Add a supplier bill" : path === "/app/invitations" ? "Invite a teammate" : path.includes("invoice") ? "Create an invoice" : path.includes("organization") ? "Business details" : `Add ${addKind}`}</h2><p>{path.includes("organization") ? "Add the details you want to show on your invoices. You can leave this blank if you work as a freelancer." : "Add the information below, then save it to your workspace."}</p></div><button type="button" className="ws-modal-close" onClick={() => {setShowForm(false);setEditingRecord(null)}} aria-label="Close dialog"><X/></button></div><div className="ws-modal-body"><RecordForm kind={addKind} initial={editingRecord || data || {}} onCancel={() => {setShowForm(false);setEditingRecord(null)}} onDone={async () => { setShowForm(false);setEditingRecord(null); if(path==="/app/invoice-detail"&&invoiceId){try{setInvoiceRecord(await api(`/api/invoices/${invoiceId}`))}catch(e){setError(e.message)}} refresh(); setToast({type:"success",title:"Saved successfully",message:`${addKind[0].toUpperCase()+addKind.slice(1)} details have been saved.`}); }} /></div></section></div>}
+      {showForm && <div className="ws-modal-backdrop" onMouseDown={e => {if(e.target===e.currentTarget){setShowForm(false);setEditingRecord(null)}}}><section ref={modalRef} className="ws-modal" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="ws-modal-title" aria-describedby="ws-modal-description"><div className="ws-modal-head"><span className="ws-modal-mark"><FileText size={19}/></span><div><h2 id="ws-modal-title">{editingRecord ? `Edit ${addKind}` : path === "/app/supplier-invoices" ? "Add a supplier bill" : path === "/app/invitations" ? "Invite a teammate" : path.includes("invoice") ? "Create an invoice" : path.includes("organization") ? "Business details" : `Add ${addKind}`}</h2><p id="ws-modal-description">{path.includes("organization") ? "Add the details you want to show on your invoices. You can leave this blank if you work as a freelancer." : "Add the information below, then save it to your workspace."}</p></div><button type="button" className="ws-modal-close" onClick={() => {setShowForm(false);setEditingRecord(null)}} aria-label="Close dialog"><X/></button></div><div className="ws-modal-body"><RecordForm kind={addKind} initial={editingRecord || data || {}} onCancel={() => {setShowForm(false);setEditingRecord(null)}} onDone={async () => { setShowForm(false);setEditingRecord(null); if(path==="/app/invoice-detail"&&invoiceId){try{setInvoiceRecord(await api(`/api/invoices/${invoiceId}`))}catch(e){setError(e.message)}} refresh(); setToast({type:"success",title:"Saved successfully",message:`${addKind[0].toUpperCase()+addKind.slice(1)} details have been saved.`}); }} /></div></section></div>}
       {path === "/app/payments" && <section className="ws-money-page">
         {(() => {
           const incoming = list.filter(payment => payment.paymentType === "Sales" && !payment.isReversed);
