@@ -5,4 +5,5 @@ import "./styles.css";
 import "./auth-overrides.css";
 import "./product-polish.css";
 import "./brand-theme.css";
+import "./public-mobile.css";
 createRoot(document.getElementById("root")).render(<React.StrictMode><App /></React.StrictMode>);
