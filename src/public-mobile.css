@@ -127,3 +127,115 @@
   body:has(.nav) .cards article,
   body:has(.nav) .compact article { padding: 10px; }
 }
+
+/* Give the Home page process section a clear, consistent card rhythm. */
+@media (max-width: 700px) {
+  body:has(.nav) .steps:not(.full) {
+    width: calc(100% - 20px);
+    max-width: 100%;
+    box-sizing: border-box;
+    margin: 0 auto;
+    padding: 24px 14px;
+    border: 1px solid #e7def8;
+    border-radius: 20px;
+    background: linear-gradient(145deg, #fbf9ff 0%, #f2edff 100%);
+  }
+  body:has(.nav) .steps:not(.full) .stepbody {
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 11px;
+  }
+  body:has(.nav) .steps:not(.full) .stepbody > div:first-child {
+    padding: 2px 2px 7px;
+  }
+  body:has(.nav) .steps:not(.full) .stepbody > div:first-child label {
+    color: #6b37d7;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+  }
+  body:has(.nav) .steps:not(.full) .stepbody > div:first-child h2 {
+    margin: 6px 0 0;
+    color: #211745;
+    font-size: clamp(22px, 6vw, 27px);
+    line-height: 1.15;
+    letter-spacing: -.55px;
+  }
+  body:has(.nav) .steps:not(.full) .stepbody article {
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    box-sizing: border-box;
+    grid-template-columns: 30px 30px minmax(0,1fr);
+    align-items: center;
+    gap: 5px 8px;
+    padding: 13px 12px;
+    border-color: #e8e0f5;
+    border-radius: 14px;
+    box-shadow: 0 5px 14px #32205a08;
+  }
+  body:has(.nav) .steps:not(.full) .stepbody article > strong {
+    display: grid;
+    place-items: center;
+    width: 27px;
+    height: 27px;
+    border: 1px solid #e3d8fa;
+    border-radius: 50%;
+    background: #f3edff;
+    color: #693ad4;
+    font-size: 11px;
+  }
+  body:has(.nav) .steps:not(.full) .stepbody article > svg {
+    display: block;
+    width: 19px;
+    height: 19px;
+    color: #7042df;
+  }
+  body:has(.nav) .steps:not(.full) .stepbody article h3 {
+    margin: 0;
+    color: #251b49;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+  body:has(.nav) .steps:not(.full) .stepbody article p {
+    grid-column: 2 / -1;
+    margin: 1px 0 0;
+    color: #706984;
+    font-size: 10px;
+    line-height: 1.5;
+  }
+
+  /* Feature symbols should sit in true, optically centered circles. */
+  body:has(.nav) .features:not(.full) .compact article > span {
+    display: grid !important;
+    place-items: center !important;
+    flex: 0 0 42px !important;
+    width: 42px !important;
+    min-width: 42px !important;
+    max-width: 42px !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    max-height: 42px !important;
+    aspect-ratio: 1 / 1;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    line-height: 0;
+    text-align: center;
+  }
+  body:has(.nav) .features:not(.full) .compact article > span svg {
+    display: block !important;
+    place-self: center !important;
+    flex: none !important;
+    width: 19px !important;
+    min-width: 19px !important;
+    height: 19px !important;
+    min-height: 19px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+  }
+}
