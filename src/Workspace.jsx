@@ -593,6 +593,19 @@ function MonthlyIncomeExpenseChart({ rows, currencyCode }) {
   return <div className="ws-chart-card"><div className="ws-chart-legend"><span><i className="income"/>Income</span><span><i className="expenses"/>Supplier bill expenses</span></div><GroupedMoneyChart rows={chartRows} currencyCode={currencyCode} label="Bar chart comparing monthly invoiced income and supplier bill expenses"/><small className="ws-chart-caption">Amounts are grouped by invoice and bill date; they do not represent cash received or paid.</small></div>;
 }
 
+function MonthlyCashFlowChart({ rows, currencyCode, loading, error, onRetry }) {
+  const chartRows = asList(rows).slice(-6).map(row => ({
+    month: row.month,
+    incoming: Number(row.cashReceived) || 0,
+    outgoing: Number(row.cashPaidOut) || 0
+  }));
+  const hasPayments = chartRows.some(row => row.incoming > 0 || row.outgoing > 0);
+  return <section className="ws-card ws-report-card ws-dashboard-chart">
+    <div className="ws-report-card-heading"><div><span>CASH FLOW</span><h3>Money received and paid</h3><p>Recorded customer and supplier payments over the last six months.</p></div><button className="ws-button secondary" onClick={onRetry} disabled={loading}><RefreshCw/>{loading ? "Updating…" : "Refresh chart"}</button></div>
+    {error ? <div className="ws-report-warning" role="status"><span>{error}</span><button className="ws-button secondary" onClick={onRetry}>Try again</button></div> : loading && chartRows.length === 0 ? <div className="ws-report-inline-state">Loading payment activity…</div> : hasPayments ? <><div className="ws-chart-legend"><span><i className="income"/>Cash received</span><span><i className="expenses"/>Cash paid</span></div><GroupedMoneyChart rows={chartRows} currencyCode={currencyCode} label="Bar chart comparing customer payments received with supplier payments made for each of the last six months"/><small className="ws-chart-caption">These are payments recorded in Invoice AI, not unpaid invoice balances. Reversed payments are excluded.</small></> : <div className="ws-chart-empty">Monthly cash-flow bars will appear here after you record a customer or supplier payment.</div>}
+  </section>;
+}
+
 function ForecastWeeklyChart({ forecast }) {
   const start = new Date(`${forecast.asOf}T00:00:00`);
   const rows = Array.from({ length: 5 }, (_, index) => {
@@ -683,7 +696,7 @@ function CreditReadinessPage({ data, loading, error, onRetry, navigate }) {
   </div>;
 }
 
-function DashboardOverview({ data, navigate, refresh }) {
+function DashboardOverview({ data, trend, trendLoading, trendError, onRetryTrend, navigate, refresh }) {
   const summary = data?.data ?? data?.result ?? data ?? {};
   const read = (object, key) => object?.[key] ?? object?.[`${key[0].toUpperCase()}${key.slice(1)}`];
   const period = read(summary, "period") || summary;
@@ -731,6 +744,8 @@ function DashboardOverview({ data, navigate, refresh }) {
 
     <div className="ws-section-heading"><div><h2>Financial overview</h2><p>Key figures for your current reporting period</p></div><span className="ws-period-chip"><CalendarDays/>{dateLabel}</span></div>
     <section className="ws-metrics">{metrics.map(([label,value,Icon,tone,description])=><article className={`ws-metric ${tone}`} key={label}><div className="ws-metric-top"><span>{label}</span><i><Icon/></i></div><b>{formatMoney(value, read(summary, "currencyCode") || "NGN")}</b><small>{description}</small></article>)}</section>
+
+    <MonthlyCashFlowChart rows={trend?.monthly} currencyCode={trend?.currencyCode || read(summary,"currencyCode") || "NGN"} loading={trendLoading} error={trendError} onRetry={onRetryTrend}/>
 
     <div className="ws-section-heading ws-actions-heading"><div><h2>{isNew ? "Get started" : "Quick actions"}</h2><p>{isNew ? "A few simple steps will make this dashboard more useful." : "Common tasks, ready when you are."}</p></div></div>
     <section className="ws-action-grid">{actions.map(([href,title,description,Icon],index)=><button className={`ws-action-card action-${index+1}`} key={href} onClick={() => navigate(href)}><span><Icon/></span><span className="ws-action-copy"><b>{title}</b><small>{description}</small></span><ArrowUpRight className="ws-action-arrow"/></button>)}</section>
@@ -865,6 +880,9 @@ export default function Workspace({ path, navigate }) {
   const [forecast, setForecast] = useState(null);
   const [forecastLoading, setForecastLoading] = useState(false);
   const [forecastError, setForecastError] = useState("");
+  const [dashboardTrend, setDashboardTrend] = useState(null);
+  const [dashboardTrendLoading, setDashboardTrendLoading] = useState(false);
+  const [dashboardTrendError, setDashboardTrendError] = useState("");
   const modalRef = useRef(null);
   useEffect(() => { api("/api/organization").then(org => { setAccountType(org.accountType === 0 ? "Freelancer" : org.accountType || "Organization"); setBaseCurrencyCode(org.baseCurrencyCode || "NGN"); if (org.isOnboardingComplete === false && path !== "/app/onboarding") navigate("/app/onboarding"); }).catch(() => setAccountType("Organization")); }, []);
   useEffect(() => { if (accountType === "Freelancer" && ["/app/team", "/app/invitations"].includes(path)) navigate("/app"); }, [accountType, path, navigate]);
@@ -892,7 +910,20 @@ export default function Workspace({ path, navigate }) {
     catch (e) { setForecastError(e.message || "The forecast could not be loaded."); }
     finally { setForecastLoading(false); }
   }, []);
+  const loadDashboardTrend = useCallback(async () => {
+    if (path !== "/app") return;
+    setDashboardTrendLoading(true); setDashboardTrendError("");
+    const today = new Date();
+    const from = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+    const dateOnly = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    try {
+      setDashboardTrend(await api(`/api/reports/financial-summary?from=${dateOnly(from)}&to=${dateOnly(today)}`));
+    } catch (e) {
+      setDashboardTrendError(e.message || "Payment activity could not be loaded.");
+    } finally { setDashboardTrendLoading(false); }
+  }, [path]);
   useEffect(() => { setShowForm(false); setEditingRecord(null); refresh(); }, [path, refresh]);
+  useEffect(() => { loadDashboardTrend(); }, [loadDashboardTrend]);
   useEffect(() => {
     if (!showForm) return undefined;
     const previousFocus = document.activeElement;
@@ -1020,7 +1051,7 @@ export default function Workspace({ path, navigate }) {
       {path === "/app/billing/return" && <SubscriptionPaymentReturn navigate={navigate}/>}
       {path === "/app/billing-history" && data && <BillingHistoryPanel data={data} onRefresh={refresh} onError={setError}/>}
       {path === "/app/payment-account" && data && <PaymentAccountPanel data={data} setData={setData} onError={setError} busy={busy} setBusy={setBusy}/>}
-      {path === "/app" && data && <DashboardOverview data={data} navigate={navigate} refresh={refresh}/>}
+      {path === "/app" && data && <DashboardOverview data={data} trend={dashboardTrend} trendLoading={dashboardTrendLoading} trendError={dashboardTrendError} onRetryTrend={loadDashboardTrend} navigate={navigate} refresh={refresh}/>}
       {path === "/app/onboarding" && data && <section className="ws-card ws-onboarding"><div className="ws-onboarding-intro"><span className="ws-task-icon"><Building2/></span><p className="ws-eyebrow">{accountType === "Freelancer" ? "FREELANCER SETUP" : "ORGANIZATION SETUP"}</p><h2>Set up your workspace</h2><p className="ws-muted">Your account is ready. Add the contact details you want printed on your invoices, then choose the reminders you’d like to see.</p></div><RecordForm kind="organization" initial={data} onCancel={()=>{}} onDone={async()=>{try{await api("/api/organization/onboarding-complete",{method:"POST"});navigate("/app");}catch(e){setError(e.message);}}}/><div className="ws-onboarding-preferences"><h3>Workspace preferences</h3><p className="ws-muted">You can change these any time in Notification settings.</p>{[["overdue","Show overdue invoice reminders"],["productUpdates","Show product updates"]].map(([key,label])=><label className="ws-pref" key={key}><span><b>{label}</b><small>{key==="overdue"?"Keep unpaid invoices past their due date visible in Notifications.":"See announcements and new Invoice AI features."}</small></span><input type="checkbox" checked={!!notificationPrefs[key]} onChange={e=>{const next={...notificationPrefs,[key]:e.target.checked};setNotificationPrefs(next);localStorage.setItem(notificationPrefsKey,JSON.stringify(next));}}/></label>)}</div></section>}
       {path === "/app" && !loading && !data && <section className="ws-card ws-dashboard-unavailable"><span className="ws-task-icon"><ChartNoAxesCombined/></span><h2>Your financial summary isn’t available right now</h2><p className="ws-muted">Try loading it again. Your invoices and other workspace pages are still available from the menu.</p><button className="ws-button primary" onClick={refresh}><RefreshCw/> Try again</button></section>}
       {path === "/app/financial-health" && <FinancialHealthPage data={data} extras={reportExtras} forecast={forecast} forecastLoading={forecastLoading} forecastError={forecastError} onRetryForecast={loadForecast} loading={loading} error={error} extrasLoading={reportExtrasLoading} extrasError={reportExtrasError} periodChoice={healthPeriod} onPeriodChange={setHealthPeriod} onRetry={refresh} onRetryExtras={()=>loadReportExtras(data?.period?.from,data?.period?.to)} navigate={navigate}/>}
