@@ -1,5 +1,5 @@
 .ia-toast {
-  --toast-accent: #6738e8;
+  --toast-accent: #713bea;
   position: fixed;
   z-index: 1200;
   top: max(20px, env(safe-area-inset-top));
@@ -10,13 +10,14 @@
   width: min(430px, calc(100vw - 36px));
   padding: 16px 17px 18px;
   overflow: hidden;
-  border: 1px solid #e5defa;
+  border: 1px solid #dfd5f6;
   border-radius: 16px;
   background: rgba(255,255,255,.98);
   box-shadow: 0 18px 54px #20104c24, 0 3px 10px #1b17470a;
   color: #211746;
   animation: ia-toast-in .24s cubic-bezier(.2,.8,.2,1) both;
 }
+.ia-toast::before { position:absolute;inset:0 0 auto;height:3px;background:linear-gradient(90deg,#5524d6,#9a56f0);content:""; }
 .ia-toast-icon {
   width: 36px;
   height: 36px;
@@ -29,10 +30,11 @@
 }
 .ia-toast-copy { display: grid; gap: 4px; min-width: 0; padding-top: 1px; font: 13px/1.5 'DM Sans',Arial,sans-serif; color: #655d79; overflow-wrap: anywhere; }
 .ia-toast-copy b { font-size: 14px; line-height: 1.35; color: #201743; }
-.ia-toast-success { --toast-accent: #11a875; border-color: #ccecdf; }
+.ia-toast-success { --toast-accent: #11a875; border-color: #ded5f6; }
 .ia-toast-success .ia-toast-icon { background: #e7f8f0; color: #0c9a67; }
-.ia-toast-error { --toast-accent: #d84c4c; border-color: #f4d4d2; }
+.ia-toast-error { --toast-accent: #d84c4c; border-color: #ded5f6; }
 .ia-toast-error .ia-toast-icon { background: #fff0ef; color: #d84740; }
+.ia-toast-error::before { background:linear-gradient(90deg,#6738e8 0%,#8a53e8 72%,#d84c4c 100%); }
 .ia-toast-close { width: 30px; height: 30px; flex: 0 0 30px; margin: -3px -5px 0 auto; border: 1px solid transparent; border-radius: 9px; background: transparent; color: #817991; display: grid; place-items: center; cursor: pointer; transition: background .15s,border-color .15s,color .15s; }
 .ia-toast-close:hover { border-color: #e9e3f6; background: #f8f6fc; color: #38276f; }
 .ia-toast-close:focus-visible { outline: 3px solid #7045ef55; outline-offset: 1px; }
@@ -47,3 +49,4 @@
   .ia-toast-copy b { font-size: 13px; }
 }
 @media(prefers-reduced-motion:reduce) { .ia-toast { animation: none; } .ia-toast-progress { display: none; } }
+.ia-toast-close:hover { border-color:#ded5f3;background:#f4efff;color:#5426b9; }

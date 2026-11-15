@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDownLeft, ArrowLeft, ArrowRight, ArrowUpRight, Bell, Bot, Building2, CalendarDays, ChartNoAxesCombined, CheckCircle2, ChevronDown, CircleDollarSign, CircleHelp, CreditCard, FileText, Home, Landmark, LayoutDashboard, LogOut, Menu, Plus, RefreshCw, Repeat, Search, Settings, Share2, Shield, Sparkles, Upload, Users, WalletCards, X } from "lucide-react";
-import { api, apiBlob, clearSession } from "./api";
+import { api, apiBlob, clearSession, friendlyErrorMessage } from "./api";
 import { buildCreditReadiness } from "./creditReadiness";
 import Toast from "./Toast";
 import RecurringInvoices from "./RecurringInvoices";
+import WorkspaceTour, { TOUR_KEY } from "./WorkspaceTour";
 import "./workspace.css";
 import "./dashboard-overrides.css";
 import "./modal.css";
@@ -696,7 +697,7 @@ function CreditReadinessPage({ data, loading, error, onRetry, navigate }) {
   </div>;
 }
 
-function DashboardOverview({ data, trend, trendLoading, trendError, onRetryTrend, navigate, refresh }) {
+function DashboardOverview({ data, trend, trendLoading, trendError, onRetryTrend, navigate, refresh, onStartTour }) {
   const summary = data?.data ?? data?.result ?? data ?? {};
   const read = (object, key) => object?.[key] ?? object?.[`${key[0].toUpperCase()}${key.slice(1)}`];
   const period = read(summary, "period") || summary;
@@ -737,6 +738,7 @@ function DashboardOverview({ data, trend, trendLoading, trendError, onRetryTrend
         <div className="ws-dashboard-hero-actions">
           <button className="ws-button primary" onClick={() => navigate("/app/invoice-new")}><Plus/> Create invoice</button>
           <button className="ws-button hero-secondary" onClick={() => navigate("/app/customers")}><Users/> Add customer</button>
+          <button className="ws-button hero-secondary ws-tour-launch" onClick={onStartTour}><CircleHelp/> Take a tour</button>
         </div>
       </div>
       <div className="ws-dashboard-art" aria-hidden="true"><div className="ws-art-orbit orbit-one"/><div className="ws-art-orbit orbit-two"/><span className="ws-art-icon"><ChartNoAxesCombined/></span><span className="ws-art-chip"><CheckCircle2/> Clear financial picture</span></div>
@@ -856,6 +858,8 @@ function SupplierInvoiceUpload({ busy, onUpload }) {
 
 export default function Workspace({ path, navigate }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
+  const tourChecked = useRef(false);
   useEffect(() => { setMobileNavOpen(false); }, [path]);
   useEffect(() => {
     if (!mobileNavOpen) return;
@@ -886,7 +890,25 @@ export default function Workspace({ path, navigate }) {
   const modalRef = useRef(null);
   useEffect(() => { api("/api/organization").then(org => { setAccountType(org.accountType === 0 ? "Freelancer" : org.accountType || "Organization"); setBaseCurrencyCode(org.baseCurrencyCode || "NGN"); if (org.isOnboardingComplete === false && path !== "/app/onboarding") navigate("/app/onboarding"); }).catch(() => setAccountType("Organization")); }, []);
   useEffect(() => { if (accountType === "Freelancer" && ["/app/team", "/app/invitations"].includes(path)) navigate("/app"); }, [accountType, path, navigate]);
-  const [data, setData] = useState(null), [error, setError] = useState(""), [toast, setToast] = useState(null), [loading, setLoading] = useState(true), [showForm, setShowForm] = useState(false), [editingRecord, setEditingRecord] = useState(null), [question, setQuestion] = useState(""), [answer, setAnswer] = useState(""), [busy, setBusy] = useState(false), [query, setQuery] = useState(""), [invoiceId, setInvoiceId] = useState(""), [invoiceRecord, setInvoiceRecord] = useState(null), [invoicePayments,setInvoicePayments]=useState([]), [invoiceCreditNotes,setInvoiceCreditNotes]=useState([]), [billId,setBillId]=useState(""), [billRecord,setBillRecord]=useState(null), [billPayments,setBillPayments]=useState([]), [pdfUrl,setPdfUrl]=useState(""), [documentId, setDocumentId] = useState(""), [extraction, setExtraction] = useState(null), [batchId, setBatchId] = useState(()=>sessionStorage.getItem("invoice-ai-bank-batch") || ""), [batchDetails, setBatchDetails] = useState(null), [suggestions, setSuggestions] = useState({}), [notificationPrefs, setNotificationPrefs] = useState(()=>JSON.parse(localStorage.getItem(notificationPrefsKey)||"{\"overdue\":true,\"productUpdates\":false}"));
+  const [data, setData] = useState(null), [error, setErrorState] = useState(""), [toast, setToast] = useState(null), [loading, setLoading] = useState(true), [showForm, setShowForm] = useState(false), [editingRecord, setEditingRecord] = useState(null), [question, setQuestion] = useState(""), [answer, setAnswer] = useState(""), [busy, setBusy] = useState(false), [query, setQuery] = useState(""), [invoiceId, setInvoiceId] = useState(""), [invoiceRecord, setInvoiceRecord] = useState(null), [invoicePayments,setInvoicePayments]=useState([]), [invoiceCreditNotes,setInvoiceCreditNotes]=useState([]), [billId,setBillId]=useState(""), [billRecord,setBillRecord]=useState(null), [billPayments,setBillPayments]=useState([]), [pdfUrl,setPdfUrl]=useState(""), [documentId, setDocumentId] = useState(""), [extraction, setExtraction] = useState(null), [batchId, setBatchId] = useState(()=>sessionStorage.getItem("invoice-ai-bank-batch") || ""), [batchDetails, setBatchDetails] = useState(null), [suggestions, setSuggestions] = useState({}), [notificationPrefs, setNotificationPrefs] = useState(()=>JSON.parse(localStorage.getItem(notificationPrefsKey)||"{\"overdue\":true,\"productUpdates\":false}"));
+  const setError = useCallback(value => setErrorState(value ? friendlyErrorMessage(value) : ""), []);
+  const startTour = useCallback(() => setTourOpen(true), []);
+  const closeTour = useCallback((status = "completed") => {
+    try { localStorage.setItem(TOUR_KEY, status); } catch { /* Storage can be unavailable in private browsing. */ }
+    setTourOpen(false);
+  }, []);
+  useEffect(() => {
+    if (path !== "/app" || !data || tourChecked.current) return undefined;
+    tourChecked.current = true;
+    let timer;
+    const frame = requestAnimationFrame(() => {
+      if (!document.querySelector(".ws-dashboard-hero")) return;
+      let preference = null;
+      try { preference = localStorage.getItem(TOUR_KEY); } catch { /* Continue without a saved preference. */ }
+      if (preference == null) timer = window.setTimeout(() => setTourOpen(true), 650);
+    });
+    return () => { cancelAnimationFrame(frame); if (timer) window.clearTimeout(timer); };
+  }, [path, data]);
   const info = pages[path] || pages["/app"];
    const refresh = useCallback(async () => { setLoading(true); setError(""); try { if(path==="/app/payments"){const [sales,bills]=await Promise.all([api("/api/payments"),api("/api/supplier-payments")]);setData({items:[...asList(sales).map(x=>({...x,paymentType:"Sales"})),...asList(bills).map(x=>({...x,paymentType:"Supplier bill"}))]});}else if(path==="/app/billing"){const [plans,subscription]=await Promise.all([api("/api/billing/plans"),api("/api/billing/subscription")]);setData({plans:asList(plans),subscription});}else if(path==="/app/billing-history"){try{setData(await api("/api/billing/history"))}catch{const current=await api("/api/billing/subscription");setData({subscription:{status:current.status||"Free",planCode:current.planCode,planName:current.plan?.name,currencyCode:current.currencyCode,amountMinor:current.amountMinor,currentPeriodStart:current.currentPeriodStart,currentPeriodEnd:current.currentPeriodEnd,canCancel:["Active","PastDue"].includes(current.status)},checkouts:[],historyUnavailable:true})}}else if(["/app/customers","/app/suppliers"].includes(path)){const base=path==="/app/customers"?"/api/customers":"/api/suppliers";setData(await api(`${base}?includeArchived=${showArchived}`));}else if(path==="/app/financial-health"){const range=periodBounds(healthPeriod);setData(await api(`/api/reports/financial-summary?from=${range.from}&to=${range.to}`));}else if(["/app/financial-records","/app/credit-readiness"].includes(path)){const range=periodBounds(recordsPeriod);setData(await api(`/api/reports/financial-records?from=${range.from}&to=${range.to}`));}else setData(info[1] ? await api(info[1]) : null); } catch (e) { setError(e.message); setData(null); } finally { setLoading(false); } }, [info[1],path,showArchived,healthPeriod,recordsPeriod]);
   const loadReportExtras = useCallback(async (from, to) => {
@@ -1051,7 +1073,7 @@ export default function Workspace({ path, navigate }) {
       {path === "/app/billing/return" && <SubscriptionPaymentReturn navigate={navigate}/>}
       {path === "/app/billing-history" && data && <BillingHistoryPanel data={data} onRefresh={refresh} onError={setError}/>}
       {path === "/app/payment-account" && data && <PaymentAccountPanel data={data} setData={setData} onError={setError} busy={busy} setBusy={setBusy}/>}
-      {path === "/app" && data && <DashboardOverview data={data} trend={dashboardTrend} trendLoading={dashboardTrendLoading} trendError={dashboardTrendError} onRetryTrend={loadDashboardTrend} navigate={navigate} refresh={refresh}/>}
+      {path === "/app" && data && <DashboardOverview data={data} trend={dashboardTrend} trendLoading={dashboardTrendLoading} trendError={dashboardTrendError} onRetryTrend={loadDashboardTrend} navigate={navigate} refresh={refresh} onStartTour={startTour}/>}
       {path === "/app/onboarding" && data && <section className="ws-card ws-onboarding"><div className="ws-onboarding-intro"><span className="ws-task-icon"><Building2/></span><p className="ws-eyebrow">{accountType === "Freelancer" ? "FREELANCER SETUP" : "ORGANIZATION SETUP"}</p><h2>Set up your workspace</h2><p className="ws-muted">Your account is ready. Add the contact details you want printed on your invoices, then choose the reminders you’d like to see.</p></div><RecordForm kind="organization" initial={data} onCancel={()=>{}} onDone={async()=>{try{await api("/api/organization/onboarding-complete",{method:"POST"});navigate("/app");}catch(e){setError(e.message);}}}/><div className="ws-onboarding-preferences"><h3>Workspace preferences</h3><p className="ws-muted">You can change these any time in Notification settings.</p>{[["overdue","Show overdue invoice reminders"],["productUpdates","Show product updates"]].map(([key,label])=><label className="ws-pref" key={key}><span><b>{label}</b><small>{key==="overdue"?"Keep unpaid invoices past their due date visible in Notifications.":"See announcements and new Invoice AI features."}</small></span><input type="checkbox" checked={!!notificationPrefs[key]} onChange={e=>{const next={...notificationPrefs,[key]:e.target.checked};setNotificationPrefs(next);localStorage.setItem(notificationPrefsKey,JSON.stringify(next));}}/></label>)}</div></section>}
       {path === "/app" && !loading && !data && <section className="ws-card ws-dashboard-unavailable"><span className="ws-task-icon"><ChartNoAxesCombined/></span><h2>Your financial summary isn’t available right now</h2><p className="ws-muted">Try loading it again. Your invoices and other workspace pages are still available from the menu.</p><button className="ws-button primary" onClick={refresh}><RefreshCw/> Try again</button></section>}
       {path === "/app/financial-health" && <FinancialHealthPage data={data} extras={reportExtras} forecast={forecast} forecastLoading={forecastLoading} forecastError={forecastError} onRetryForecast={loadForecast} loading={loading} error={error} extrasLoading={reportExtrasLoading} extrasError={reportExtrasError} periodChoice={healthPeriod} onPeriodChange={setHealthPeriod} onRetry={refresh} onRetryExtras={()=>loadReportExtras(data?.period?.from,data?.period?.to)} navigate={navigate}/>}
@@ -1062,7 +1084,7 @@ export default function Workspace({ path, navigate }) {
       {path === "/app/insights" && <YearInsightsPage data={data} loading={loading} error={error} onRetry={refresh}/>}
       {path === "/app/customers" && customerSummary && <section className="ws-card"><div className="ws-card-title"><div><h2>{customerSummary.customerName} · account summary</h2><p className="ws-muted">Invoice and payment totals for this customer.</p></div><button className="ws-button secondary" onClick={async()=>{try{const file=await apiBlob(`/api/customers/${customerSummary.customerId}/statement/pdf`);const url=URL.createObjectURL(file);const a=document.createElement("a");a.href=url;a.download=`${customerSummary.customerName}-statement.pdf`;a.click();URL.revokeObjectURL(url)}catch(e){setError(e.message)}}}>Download statement</button></div><div className="ws-billing-summary"><span>Total invoiced <b>{formatMoney(customerSummary.totalInvoiced,customerSummary.currencyCode)}</b></span><span>Paid <b>{formatMoney(customerSummary.totalPaid,customerSummary.currencyCode)}</b></span><span>Outstanding <b>{formatMoney(customerSummary.outstanding,customerSummary.currencyCode)}</b></span><span>Overdue <b>{formatMoney(customerSummary.overdue,customerSummary.currencyCode)}</b></span></div><p className="ws-muted">{customerSummary.openInvoices} open invoices · {customerSummary.overdueInvoices} overdue</p></section>}
       {!info[1] && !["/app/upload-supplier-invoice", "/app/bank-import", "/app/bank-reconciliation", "/app/invoice-detail", "/app/invoice-preview", "/app/security", "/app/preferences", "/app/notifications", "/app/help", "/app/billing/return", "/app/financial-records", "/app/credit-readiness", "/app/financial-guidance"].includes(path) && <section className="ws-card ws-empty-card"><h2>{info[0]}</h2><p>This part of Invoice AI is not ready yet. You can continue using the other workspace tools from the menu.</p></section>}
-      <footer className="ws-footer">Invoice AI · Smart. Simple. Powerful.</footer></section></main></div>;
+      <footer className="ws-footer">Invoice AI · Smart. Simple. Powerful.</footer></section></main><WorkspaceTour open={tourOpen} onClose={closeTour}/></div>;
 }
 
 

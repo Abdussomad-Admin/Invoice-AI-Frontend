@@ -1,0 +1,37 @@
+.ws-tour-layer{position:fixed;inset:0;z-index:12000;pointer-events:none}
+.ws-tour-dimmer{position:fixed;inset:0;width:100vw;height:100vh;width:100dvw;height:100dvh;pointer-events:auto}
+.ws-tour-outline{stroke:#b991ff;stroke-width:2;filter:drop-shadow(0 0 7px #9a6cff);animation:ws-tour-outline-glow 1.8s ease-in-out infinite}
+.ws-tour-beacon{position:fixed;z-index:2;width:18px;height:18px;border:3px solid #fff;border-radius:50%;background:#7437ee;box-shadow:0 0 0 3px #7437ee,0 3px 14px #32106c66;pointer-events:none}
+.ws-tour-beacon i{position:absolute;inset:-8px;border:2px solid #a982ff;border-radius:50%;animation:ws-tour-pulse 1.8s ease-out infinite}
+.ws-tour-card{position:fixed;z-index:3;box-sizing:border-box;width:min(370px,calc(100vw - 32px));max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:auto;padding:20px 21px 16px;border:1px solid #ffffff30;border-radius:18px;background:linear-gradient(145deg,#261057 0%,#351777 60%,#482099 100%);color:#fff;box-shadow:0 22px 70px #13083270;outline:none;animation:ws-tour-enter .2s ease-out}
+.ws-tour-card-top{display:flex;align-items:center;gap:10px}
+.ws-tour-mark{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border:1px solid #ffffff35;border-radius:11px;background:#ffffff19;color:#d6c0ff}
+.ws-tour-mark svg{width:19px;height:19px}
+.ws-tour-count{color:#d7c5ff;font-size:10px;font-weight:800;letter-spacing:.11em}
+.ws-tour-close{display:grid;place-items:center;width:32px;height:32px;margin-left:auto;border:1px solid #ffffff35;border-radius:10px;background:#ffffff10;color:#fff;cursor:pointer}
+.ws-tour-close:hover{background:#ffffff20}
+.ws-tour-close svg{width:17px;height:17px}
+.ws-tour-progress{display:flex;gap:5px;margin:17px 0 16px}
+.ws-tour-progress i{height:4px;flex:1;border-radius:99px;background:#ffffff2b}
+.ws-tour-progress i.is-active{background:#b894ff}
+.ws-tour-card h2{margin:0 0 8px;color:#fff;font:800 19px/1.25 Manrope,'DM Sans',sans-serif;letter-spacing:-.3px}
+.ws-tour-card p{margin:0;color:#e4dcf7;font-size:12px;line-height:1.65}
+.ws-tour-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:20px;padding-top:14px;border-top:1px solid #ffffff24}
+.ws-tour-footer>div{display:flex;gap:8px}
+.ws-tour-skip,.ws-tour-back,.ws-tour-next{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:36px;padding:0 11px;border:1px solid #ffffff38;border-radius:10px;color:#fff;font:700 11px 'DM Sans',Arial;cursor:pointer;transition:background .15s,transform .15s}
+.ws-tour-skip,.ws-tour-back{background:#ffffff0e}
+.ws-tour-next{border-color:#d1b7ff;background:#fff;color:#422080}
+.ws-tour-skip:hover,.ws-tour-back:hover{background:#ffffff20}
+.ws-tour-next:hover{background:#f0e8ff;transform:translateY(-1px)}
+.ws-tour-footer svg{width:14px;height:14px}
+.ws-tour-never{display:block;margin:12px auto 0;padding:4px 6px;border:0;background:transparent;color:#d3c4ed;font:500 10px 'DM Sans',Arial;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.ws-tour-never:hover{color:#fff}
+.ws-tour-card button:focus-visible{outline:3px solid #d8c3ff;outline-offset:2px}
+.ws-dashboard-hero-actions .ws-tour-launch{display:inline-flex;align-items:center;gap:7px}
+.ws-dashboard-hero-actions .ws-tour-launch svg{width:15px;height:15px}
+@keyframes ws-tour-pulse{0%{transform:scale(.62);opacity:.85}80%,100%{transform:scale(1.55);opacity:0}}
+@keyframes ws-tour-outline-glow{0%,100%{stroke-opacity:.75}50%{stroke-opacity:1}}
+@keyframes ws-tour-enter{from{opacity:0;transform:translateY(6px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(max-width:700px){.ws-tour-card{left:16px!important;right:16px;width:auto;top:auto!important;bottom:max(16px,env(safe-area-inset-bottom));max-height:min(48vh,340px);padding:17px 17px 13px;border-radius:17px}.ws-tour-card h2{font-size:17px}.ws-tour-card p{font-size:11px}.ws-tour-footer{margin-top:15px}.ws-tour-never{margin-top:8px}.ws-tour-beacon{width:15px;height:15px}}
+@media(max-height:620px) and (max-width:700px){.ws-tour-card{max-height:55vh;padding:14px}.ws-tour-progress{margin:10px 0}.ws-tour-footer{margin-top:12px;padding-top:10px}}
+@media(prefers-reduced-motion:reduce){.ws-tour-outline,.ws-tour-beacon i{animation:none}.ws-tour-card{animation:none;scroll-behavior:auto}}

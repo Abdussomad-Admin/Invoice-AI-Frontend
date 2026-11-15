@@ -1,10 +1,69 @@
 const API_BASE_URL = import.meta.env.DEV ? "" : (import.meta.env.VITE_SERVER_API_BASE_URL || "https://invoiceaibackend-yk9n.onrender.com").replace(/\/$/, "");
+const GENERAL_ERROR = "We couldn’t complete that action. Please try again. If it keeps happening, contact support.";
+
+function humanizeField(value = "") {
+  return value.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/^./, letter => letter.toUpperCase());
+}
+
+function responseErrorMessage(result) {
+  if (result && typeof result === "object" && result.errors && typeof result.errors === "object") {
+    const first = Object.entries(result.errors)[0];
+    if (first) {
+      const [field, value] = first;
+      const detail = Array.isArray(value) ? value[0] : value;
+      if (detail && !/^one or more validation errors occurred\.?$/i.test(String(detail))) {
+        const length = String(detail).match(/maximum length of (\d+)/i);
+        if (length) return `${humanizeField(field)} must be no more than ${length[1]} characters${field.toLowerCase() === "countrycode" ? ". For example, use NG for Nigeria." : "."}`;
+        if (/required/i.test(String(detail))) return `${humanizeField(field)} is required.`;
+        return `${humanizeField(field)}: ${detail}`;
+      }
+    }
+  }
+  return typeof result === "string" ? result : result?.detail || result?.message || result?.title || "";
+}
+
+export function friendlyErrorMessage(error, status, path = "") {
+  const raw = typeof error === "string" ? error : error?.message;
+  const message = String(raw || "").trim();
+  const lower = message.toLowerCase();
+
+  if (!message) return status === 400 ? "Please check the information and try again." : GENERAL_ERROR;
+  if (/cannot read propert|cannot set propert|cannot access .* before initialization|object reference not set|nullreferenceexception|(?:reference|type|syntax)error\b|is not defined|not a function|stack trace| at [\w.$]+\s*\(|npgsql|sql(ex|state)|objectdisposedexception|invalidoperationexception/.test(lower)) return GENERAL_ERROR;
+  if (/failed to fetch|networkerror|load failed|cors policy|can't connect|could not connect|network request failed/.test(lower)) return "We couldn’t connect to Invoice AI. Check your internet connection and try again.";
+  if (/ai features are not enabled|ai .*not enabled on this server/.test(lower)) return "Automatic bill reading isn’t available right now. You can still enter the bill details yourself, or try again later.";
+  if (/invalid email or password|invalid credentials|email or password/.test(lower)) return "That email and password combination doesn’t match. Check your details and try again.";
+  if (/session has expired|refresh token/.test(lower)) return "Your session has expired. Sign in again to continue.";
+  if (/payment provider did not return|checkout link/.test(lower)) return "We couldn’t open secure payment. Please try again in a moment.";
+  if (/json value could not be converted|cannot deserialize|deserialization|invalid request data/.test(lower)) return "Some details are in the wrong format. Check the form fields and try again.";
+  if (/request failed|unexpected error|internal server error|something went wrong/.test(lower)) return GENERAL_ERROR;
+  if (/duplicate key|unique constraint|already exists/.test(lower)) return "A record with those details already exists. Check the information and try again.";
+  const fieldLength = message.match(/^([A-Za-z][A-Za-z0-9]*) must be at most (\d+) characters?\.?$/i);
+  if (fieldLength) return `${humanizeField(fieldLength[1])} must be no more than ${fieldLength[2]} characters${fieldLength[1].toLowerCase() === "countrycode" ? ". For example, use NG for Nigeria." : "."}`;
+  if (/^one or more validation errors occurred\.?$/i.test(message)) return "Some details need checking. Review the fields and try again.";
+
+  if (status === 401) {
+    if (path.includes("/auth/login")) return "That email and password combination doesn’t match. Check your details and try again.";
+    if (path.includes("/public/")) return "We couldn’t verify this payment link. Open the link from the invoice or contact the business.";
+    return "Your session has expired. Sign in again to continue.";
+  }
+  if (status === 403) return "You don’t have permission to do that. Ask your workspace owner for access.";
+  if (status === 404) return path.includes("/public/")
+    ? "We couldn’t find this invoice payment link. Ask the business to send you a new link."
+    : "We couldn’t find that item. Refresh the page and check that it still exists.";
+  if (status === 409) return "This change conflicts with an existing record. Refresh the page, check the details, and try again.";
+  if (status === 413) return "That file is too large. Choose a smaller file and try again.";
+  if (status === 429) return "You’re doing that a little too quickly. Wait a moment, then try again.";
+  if (status >= 500) return "Invoice AI is having a temporary problem. Please try again shortly.";
+  if (/<(!doctype|html)|\b(exception|stack trace|inner exception|server error)\b/i.test(message)) return GENERAL_ERROR;
+  return message;
+}
+
 async function request(url, options) {
   try {
     return await fetch(url, options);
   } catch (error) {
     if (error instanceof TypeError) {
-      throw new Error("Can't connect to the hosted Invoice AI backend. Check your internet connection. If the API responds but the browser blocks the request, its CORS settings need the frontend's origin.", { cause: error });
+      throw new Error("We couldn’t connect to Invoice AI. Check your internet connection and try again.", { cause: error });
     }
     throw error;
   }
@@ -37,8 +96,7 @@ async function refreshSession() {
       const type = response.headers.get("content-type") || "";
       const result = type.includes("json") ? await response.json() : await response.text();
       if (!response.ok) {
-        const message = typeof result === "string" ? result : result.detail || result.title || result.message || "Your session has expired. Please log in again.";
-        throw new Error(message);
+        throw new Error(friendlyErrorMessage(responseErrorMessage(result), response.status, "/api/auth/refresh"));
       }
       saveSession(result);
       return result.token;
@@ -89,8 +147,7 @@ export async function api(path, options = {}) {
   const type = response.headers.get("content-type") || "";
   const result = type.includes("json") ? await response.json() : await response.text();
   if (!response.ok) {
-    const message = typeof result === "string" ? result : result.detail || result.title || result.message || "Request failed.";
-    throw new Error(message);
+    throw new Error(friendlyErrorMessage(responseErrorMessage(result), response.status, path));
   }
   return result;
 }
@@ -98,7 +155,7 @@ export async function apiBlob(path) {
   const response = await authenticatedRequest(path, {});
   if (!response.ok) {
     const message = await response.text();
-    throw new Error(message || "Download failed.");
+    throw new Error(friendlyErrorMessage(message || "We couldn’t download that file. Please try again.", response.status, path));
   }
   return response.blob();
 }
