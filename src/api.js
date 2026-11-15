@@ -31,6 +31,7 @@ export function friendlyErrorMessage(error, status, path = "") {
   if (/cannot read propert|cannot set propert|cannot access .* before initialization|object reference not set|nullreferenceexception|(?:reference|type|syntax)error\b|is not defined|not a function|stack trace| at [\w.$]+\s*\(|npgsql|sql(ex|state)|objectdisposedexception|invalidoperationexception/.test(lower)) return GENERAL_ERROR;
   if (/failed to fetch|networkerror|load failed|cors policy|can't connect|could not connect|network request failed/.test(lower)) return "We couldn’t connect to Invoice AI. Check your internet connection and try again.";
   if (/ai features are not enabled|ai .*not enabled on this server/.test(lower)) return "Automatic bill reading isn’t available right now. You can still enter the bill details yourself, or try again later.";
+  if (/email.{0,30}not verified|verify your email/.test(lower)) return "Your email is not verified yet. We sent a fresh verification link. Open it to continue to your dashboard.";
   if (/invalid email or password|invalid credentials|email or password/.test(lower)) return "That email and password combination doesn’t match. Check your details and try again.";
   if (/session has expired|refresh token/.test(lower)) return "Your session has expired. Sign in again to continue.";
   if (/payment provider did not return|checkout link/.test(lower)) return "We couldn’t open secure payment. Please try again in a moment.";
