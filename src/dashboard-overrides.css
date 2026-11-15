@@ -429,3 +429,28 @@
   .workspace .ws-mobile-nav-toggle svg{width:18px;height:18px}
 }
 @media(prefers-reduced-motion:reduce){.workspace .ws-sidebar{transition:none}}
+
+/* Mobile browsers often show a blank embedded PDF viewer; offer direct file actions. */
+.ws-pdf-preview-links{display:flex;gap:8px}
+.ws-pdf-preview-mobile-help{display:none}
+@media(max-width:600px){
+  .ws-pdf-preview-links{flex-wrap:wrap;justify-content:flex-end}
+  .ws-pdf-preview-mobile-help{display:block;margin:0;padding:11px 12px;border:1px solid #e7def4;border-radius:10px;background:#faf8ff;color:#706887;font-size:11px;line-height:1.5}
+  .ws-pdf-preview-result .ws-pdf-frame{display:none}
+}
+
+.ws-chart-card{min-width:0;margin:10px 0 15px;padding:14px 14px 10px;border:1px solid #ece6f7;border-radius:12px;background:linear-gradient(145deg,#fff,#fcfaff)}
+.ws-chart-card>h4{margin:0 0 10px;color:#302452;font-size:12px}
+.ws-chart-legend{display:flex;flex-wrap:wrap;gap:14px;margin:0 0 8px;color:#736b87;font-size:10px}
+.ws-chart-legend>span{display:inline-flex;align-items:center;gap:6px}
+.ws-chart-legend i{display:inline-block;width:9px;height:9px;border-radius:3px}
+.ws-chart-legend i.income,.ws-chart-income{fill:#7543df}.ws-chart-legend i.income{background:#7543df}
+.ws-chart-legend i.expenses,.ws-chart-expenses{fill:#11a879}.ws-chart-legend i.expenses{background:#11a879}
+.ws-chart-scroll{width:100%;overflow-x:auto;overscroll-behavior-inline:contain}
+.ws-money-chart{display:block;width:100%;min-width:430px;height:auto;overflow:visible}
+.ws-chart-gridline{stroke:#ebe6f4;stroke-width:1}
+.ws-chart-axis{fill:#817992;font:10px 'DM Sans',Arial,sans-serif}
+.ws-chart-income,.ws-chart-expenses{transition:opacity .15s ease}.ws-money-chart rect:hover{opacity:.78}
+.ws-chart-caption{display:block;margin-top:5px;color:#827b98;font-size:9px;line-height:1.5}
+.ws-chart-empty{padding:30px 12px;border:1px dashed #e5dff0;border-radius:10px;color:#817992;text-align:center;font-size:11px}
+@media(max-width:520px){.ws-chart-card{padding:11px}.ws-money-chart{min-width:390px}.ws-chart-caption{font-size:9px}}
