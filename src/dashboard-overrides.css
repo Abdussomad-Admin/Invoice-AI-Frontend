@@ -454,3 +454,24 @@
 .ws-chart-caption{display:block;margin-top:5px;color:#827b98;font-size:9px;line-height:1.5}
 .ws-chart-empty{padding:30px 12px;border:1px dashed #e5dff0;border-radius:10px;color:#817992;text-align:center;font-size:11px}
 @media(max-width:520px){.ws-chart-card{padding:11px}.ws-money-chart{min-width:390px}.ws-chart-caption{font-size:9px}}
+
+.ws-credit-readiness-intro{display:flex;align-items:center;gap:16px;padding:20px 22px}
+.ws-credit-readiness-intro>div{flex:1;min-width:0}
+.ws-credit-readiness-intro h3{margin:0 0 5px;color:#241846;font-size:16px}
+.ws-credit-readiness-intro p{margin:0;color:#756d88;font-size:12px;line-height:1.6}
+.ws-readiness-icon{display:grid;place-items:center;flex:0 0 46px;width:46px;height:46px;border-radius:14px;background:#f0e9ff;color:#7543df}
+.ws-readiness-icon svg{width:22px;height:22px}
+.ws-credit-readiness .ws-readiness-list article{grid-template-columns:32px minmax(0,1fr) auto auto}
+.ws-credit-readiness-note{display:flex;align-items:flex-start;gap:12px;padding:15px 17px;border:1px solid #e6def5;border-radius:13px;background:#faf8ff;color:#645b78}
+.ws-credit-readiness-note>svg{flex:0 0 19px;color:#7543df}
+.ws-credit-readiness-note p{margin:0;font-size:11px;line-height:1.65}
+.ws-credit-readiness-note b{color:#302452}
+.ws-credit-readiness-actions{display:flex;flex-wrap:wrap;gap:9px}
+@media(max-width:640px){.ws-credit-readiness-intro{align-items:flex-start;flex-wrap:wrap;padding:16px}.ws-credit-readiness-intro>div{flex:1 1 calc(100% - 65px)}.ws-credit-readiness-intro>.ws-button{width:100%;justify-content:center}.ws-credit-readiness .ws-readiness-list article{grid-template-columns:28px minmax(0,1fr)}.ws-credit-readiness .ws-readiness-list article>strong{grid-column:2}.ws-credit-readiness .ws-readiness-list article>.ws-text-button{grid-column:2;justify-self:start}}
+
+/* Keep sign out readable and comfortably tappable in the mobile drawer. */
+.workspace .ws-sidebar>.ws-logout{display:flex;align-items:center;justify-content:flex-start;gap:10px;box-sizing:border-box;min-width:0;min-height:46px;margin-top:10px;padding:11px 12px;border:1px solid #ffffff26;border-radius:11px;background:#ffffff0c;color:#e9e2ff;font-size:12px;font-weight:700;line-height:1.2;white-space:nowrap;transition:background .16s ease,border-color .16s ease,color .16s ease}
+.workspace .ws-sidebar>.ws-logout svg{display:block;flex:0 0 18px;width:18px;height:18px}
+.workspace .ws-sidebar>.ws-logout:hover{border-color:#a984ff66;background:#ffffff17;color:#fff}
+.workspace .ws-sidebar>.ws-logout:focus-visible{outline:3px solid #b79aff;outline-offset:2px}
+@media(max-width:620px){.workspace .ws-sidebar>.ws-logout{position:static!important;inset:auto!important;flex:0 0 auto;width:100%!important;min-width:100%!important;height:auto!important;padding:12px!important;border:1px solid #ffffff2e!important;border-radius:11px!important;font-size:12px!important;white-space:nowrap!important}}
