@@ -3,7 +3,7 @@
 .ws-tour-outline{stroke:#b991ff;stroke-width:2;filter:drop-shadow(0 0 7px #9a6cff);animation:ws-tour-outline-glow 1.8s ease-in-out infinite}
 .ws-tour-beacon{position:fixed;z-index:2;width:18px;height:18px;border:3px solid #fff;border-radius:50%;background:#7437ee;box-shadow:0 0 0 3px #7437ee,0 3px 14px #32106c66;pointer-events:none}
 .ws-tour-beacon i{position:absolute;inset:-8px;border:2px solid #a982ff;border-radius:50%;animation:ws-tour-pulse 1.8s ease-out infinite}
-.ws-tour-card{position:fixed;z-index:3;box-sizing:border-box;width:min(370px,calc(100vw - 32px));max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:auto;padding:20px 21px 16px;border:1px solid #ffffff30;border-radius:18px;background:linear-gradient(145deg,#261057 0%,#351777 60%,#482099 100%);color:#fff;box-shadow:0 22px 70px #13083270;outline:none;animation:ws-tour-enter .2s ease-out}
+.ws-tour-card{position:fixed;z-index:3;pointer-events:auto;box-sizing:border-box;width:min(370px,calc(100vw - 32px));max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:auto;padding:20px 21px 16px;border:1px solid #ffffff30;border-radius:18px;background:linear-gradient(145deg,#261057 0%,#351777 60%,#482099 100%);color:#fff;box-shadow:0 22px 70px #13083270;outline:none;animation:ws-tour-enter .2s ease-out}
 .ws-tour-card-top{display:flex;align-items:center;gap:10px}
 .ws-tour-mark{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border:1px solid #ffffff35;border-radius:11px;background:#ffffff19;color:#d6c0ff}
 .ws-tour-mark svg{width:19px;height:19px}
