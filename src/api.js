@@ -19,7 +19,7 @@ function responseErrorMessage(result) {
       }
     }
   }
-  return typeof result === "string" ? result : result?.detail || result?.message || result?.title || "";
+  return typeof result === "string" ? result : result?.detail || result?.message || result?.error || result?.title || "";
 }
 
 export function friendlyErrorMessage(error, status, path = "") {
@@ -35,6 +35,9 @@ export function friendlyErrorMessage(error, status, path = "") {
   if (/invalid email or password|invalid credentials|email or password/.test(lower)) return "That email and password combination doesn’t match. Check your details and try again.";
   if (/session has expired|refresh token/.test(lower)) return "Your session has expired. Sign in again to continue.";
   if (/payment provider did not return|checkout link/.test(lower)) return "We couldn’t open secure payment. Please try again in a moment.";
+  if (/business is still completing payment account verification|online payments are not ready for this business/.test(lower)) return "Online payments aren’t ready for this business yet. Check the Paystack account setup in Invoice AI, or arrange another payment method.";
+  if (/needs to add an email address for this customer/.test(lower)) return "Add an email address to this customer’s record before accepting online payment.";
+  if (/payment is already being prepared/.test(lower)) return "Your secure payment link is still being prepared. Wait a moment, then try again.";
   if (/json value could not be converted|cannot deserialize|deserialization|invalid request data/.test(lower)) return "Some details are in the wrong format. Check the form fields and try again.";
   if (/request failed|unexpected error|internal server error|something went wrong/.test(lower)) return GENERAL_ERROR;
   if (/duplicate key|unique constraint|already exists/.test(lower)) return "A record with those details already exists. Check the information and try again.";

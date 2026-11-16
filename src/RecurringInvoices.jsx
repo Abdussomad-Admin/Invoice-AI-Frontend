@@ -24,7 +24,7 @@ function ScheduleForm({ customers, baseCurrency, currency, setCurrency, busy, on
       {currency !== baseCurrency && <label>Exchange rate to {baseCurrency}<input name="exchangeRateToBase" type="number" min="0.00000001" step="0.00000001" required/><small>How much 1 {currency} is worth in {baseCurrency}.</small></label>}
       <label>Payment due after (days)<input name="paymentTermsDays" type="number" min="0" max="365" defaultValue="30" required/></label>
       <label>Invoice item<input name="lineDescription" required placeholder="Monthly service"/></label>
-      <label>Quantity<input name="quantity" type="number" min="0.0001" step="0.01" defaultValue="1" required/></label>
+      <label>Quantity<input name="quantity" type="number" min="0.01" step="0.01" defaultValue="1" required/></label>
       <label>Price per item<input name="unitPrice" type="number" min="0.01" step="0.01" required/></label>
     </div>
     <div className="ws-recurring-safety"><CheckCircle2/><span>Each scheduled invoice is saved as a draft. It is <b>never sent or charged automatically.</b></span></div>
@@ -56,7 +56,8 @@ export default function RecurringInvoices({ schedules, onRefresh, onError }) {
 
   async function create(event) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     setBusy(true);
     try {
       await api("/api/recurring-invoices", { method: "POST", body: {
@@ -65,7 +66,7 @@ export default function RecurringInvoices({ schedules, onRefresh, onError }) {
         paymentTermsDays: Number(form.get("paymentTermsDays")), frequency: form.get("frequency"), firstRunOn: form.get("firstRunOn"),
         lines: [{ description: form.get("lineDescription"), quantity: Number(form.get("quantity")), unitPrice: Number(form.get("unitPrice")) }]
       }});
-      event.currentTarget.reset();
+      formElement.reset();
       setCreating(false);
       await onRefresh();
     } catch (error) { onError(error.message); }
