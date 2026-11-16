@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
-import { CalendarDays, CheckCircle2, Clock3, FileText, Pause, Play, Plus, Repeat, Search, Sparkles } from "lucide-react";
+import { CalendarDays, CheckCircle2, Clock3, FileText, Pause, Pencil, Play, Plus, Repeat, Search, Sparkles } from "lucide-react";
 
 const asList = value => Array.isArray(value) ? value : value?.items || [];
 const currencies = ["NGN", "GHS", "KES", "ZAR", "GBP", "USD"];
@@ -11,24 +11,24 @@ function dateLabel(value) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function ScheduleForm({ customers, baseCurrency, currency, setCurrency, busy, onCancel, onSubmit }) {
+function ScheduleForm({ customers, baseCurrency, currency, setCurrency, schedule, busy, onCancel, onSubmit }) {
   const options = [...new Set([baseCurrency, ...currencies])];
   return <form className="ws-form ws-recurring-form" onSubmit={onSubmit}>
-    <div className="ws-recurring-form-intro"><span className="ws-recurring-form-icon"><CalendarDays/></span><div><b>Schedule a regular invoice</b><small>Invoice AI creates a draft on each date. You review and send it yourself.</small></div></div>
+    <div className="ws-recurring-form-intro"><span className="ws-recurring-form-icon"><CalendarDays/></span><div><b>{schedule ? "Edit recurring schedule" : "Schedule a regular invoice"}</b><small>Invoice AI creates a draft on each date. You review and send it yourself.</small></div></div>
     <div className="ws-form-grid">
-      <label>Customer<select name="customerId" required defaultValue=""><option value="" disabled>Choose a customer</option>{customers.filter(customer => !customer.isArchived).map(customer => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label>
-      <label>What is this schedule for?<input name="description" required maxLength="200" placeholder="Monthly design retainer"/></label>
-      <label>How often?<select name="frequency" defaultValue="Monthly"><option>Weekly</option><option>Monthly</option><option>Quarterly</option><option>Yearly</option></select></label>
-      <label>First draft date<input name="firstRunOn" type="date" min={new Date().toISOString().slice(0,10)} required/></label>
+      <label>Customer<select name="customerId" required defaultValue={schedule?.customerId || ""}><option value="" disabled>Choose a customer</option>{customers.filter(customer => !customer.isArchived).map(customer => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label>
+      <label>What is this schedule for?<input name="description" required maxLength="200" defaultValue={schedule?.description || ""} placeholder="Monthly design retainer"/></label>
+      <label>How often?<select name="frequency" defaultValue={schedule?.frequency || "Monthly"}><option>Weekly</option><option>Monthly</option><option>Quarterly</option><option>Yearly</option></select></label>
+      <label>Next draft date<input name="firstRunOn" type="date" min={schedule ? undefined : new Date().toISOString().slice(0,10)} defaultValue={schedule?.nextRunOn?.slice(0,10) || ""} required/></label>
       <label>Invoice currency<select name="currencyCode" value={currency} onChange={event => setCurrency(event.target.value)} required>{options.map(code => <option key={code} value={code}>{code}</option>)}</select></label>
-      {currency !== baseCurrency && <label>Exchange rate to {baseCurrency}<input name="exchangeRateToBase" type="number" min="0.00000001" step="0.00000001" required/><small>How much 1 {currency} is worth in {baseCurrency}.</small></label>}
-      <label>Payment due after (days)<input name="paymentTermsDays" type="number" min="0" max="365" defaultValue="30" required/></label>
-      <label>Invoice item<input name="lineDescription" required placeholder="Monthly service"/></label>
-      <label>Quantity<input name="quantity" type="number" min="0.01" step="0.01" defaultValue="1" required/></label>
-      <label>Price per item<input name="unitPrice" type="number" min="0.01" step="0.01" required/></label>
+      {currency !== baseCurrency && <label>Exchange rate to {baseCurrency}<input name="exchangeRateToBase" type="number" min="0.00000001" step="0.00000001" defaultValue={schedule?.exchangeRateToBase ?? ""} required/><small>How much 1 {currency} is worth in {baseCurrency}.</small></label>}
+      <label>Payment due after (days)<input name="paymentTermsDays" type="number" min="0" max="365" defaultValue={schedule?.paymentTermsDays ?? 30} required/></label>
+      <label>Invoice item<input name="lineDescription" required defaultValue={schedule?.lines?.[0]?.description || ""} placeholder="Monthly service"/></label>
+      <label>Quantity<input name="quantity" type="number" min="0.01" step="0.01" defaultValue={schedule?.lines?.[0]?.quantity ?? "1"} required/></label>
+      <label>Price per item<input name="unitPrice" type="number" min="0.01" step="0.01" defaultValue={schedule?.lines?.[0]?.unitPrice ?? ""} required/></label>
     </div>
     <div className="ws-recurring-safety"><CheckCircle2/><span>Each scheduled invoice is saved as a draft. It is <b>never sent or charged automatically.</b></span></div>
-    <div className="ws-form-actions"><button className="ws-button secondary" type="button" onClick={onCancel}>Cancel</button><button className="ws-button primary" disabled={busy}>{busy ? "Saving schedule…" : "Save schedule"}</button></div>
+    <div className="ws-form-actions"><button className="ws-button secondary" type="button" onClick={onCancel}>Cancel</button><button className="ws-button primary" disabled={busy}>{busy ? "Saving schedule…" : schedule ? "Save changes" : "Save schedule"}</button></div>
   </form>;
 }
 
@@ -37,6 +37,7 @@ export default function RecurringInvoices({ schedules, onRefresh, onError }) {
   const [baseCurrency, setBaseCurrency] = useState("NGN");
   const [currency, setCurrency] = useState("NGN");
   const [creating, setCreating] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState(null);
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
   const items = asList(schedules);
@@ -54,23 +55,36 @@ export default function RecurringInvoices({ schedules, onRefresh, onError }) {
       .catch(error => onError(error.message));
   }, [onError]);
 
-  async function create(event) {
+  async function save(event) {
     event.preventDefault();
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
     setBusy(true);
     try {
-      await api("/api/recurring-invoices", { method: "POST", body: {
+      await api(editingSchedule ? `/api/recurring-invoices/${editingSchedule.id}` : "/api/recurring-invoices", { method: editingSchedule ? "PUT" : "POST", body: {
         customerId: form.get("customerId"), description: form.get("description"), currencyCode: form.get("currencyCode"),
         exchangeRateToBase: currency === baseCurrency ? 1 : Number(form.get("exchangeRateToBase")),
         paymentTermsDays: Number(form.get("paymentTermsDays")), frequency: form.get("frequency"), firstRunOn: form.get("firstRunOn"),
-        lines: [{ description: form.get("lineDescription"), quantity: Number(form.get("quantity")), unitPrice: Number(form.get("unitPrice")) }]
+        lines: [{ description: form.get("lineDescription"), quantity: Number(form.get("quantity")), unitPrice: Number(form.get("unitPrice")), discountPercent: editingSchedule?.lines?.[0]?.discountPercent || 0, taxRatePercent: editingSchedule?.lines?.[0]?.taxRatePercent || 0 }, ...(editingSchedule?.lines || []).slice(1)]
       }});
       formElement.reset();
       setCreating(false);
+      setEditingSchedule(null);
       await onRefresh();
     } catch (error) { onError(error.message); }
     finally { setBusy(false); }
+  }
+
+  function openCreate() {
+    setEditingSchedule(null);
+    setCurrency(baseCurrency);
+    setCreating(true);
+  }
+
+  function openEdit(schedule) {
+    setEditingSchedule(schedule);
+    setCurrency(schedule.currencyCode || baseCurrency);
+    setCreating(true);
   }
 
   async function toggle(schedule) {
@@ -89,10 +103,10 @@ export default function RecurringInvoices({ schedules, onRefresh, onError }) {
     </section>
 
     <section className="ws-card ws-recurring-card">
-      <div className="ws-recurring-card-head"><div className="ws-recurring-heading-icon"><Repeat/></div><div className="ws-recurring-heading-copy"><h3>Your schedules</h3><p>Create recurring invoices and check what is active or paused.</p></div><div className="ws-recurring-head-actions">{items.length > 0 && <span className="ws-recurring-count"><b>{activeCount}</b> active <i/> {items.length - activeCount} paused</span>}<button className="ws-button primary" onClick={() => setCreating(value => !value)}><Plus/>{creating ? "Close form" : "Create schedule"}</button></div></div>
-      {creating && <ScheduleForm customers={customers} baseCurrency={baseCurrency} currency={currency} setCurrency={setCurrency} busy={busy} onCancel={() => setCreating(false)} onSubmit={create}/>}
+      <div className="ws-recurring-card-head"><div className="ws-recurring-heading-icon"><Repeat/></div><div className="ws-recurring-heading-copy"><h3>Your schedules</h3><p>Create recurring invoices and check what is active or paused.</p></div><div className="ws-recurring-head-actions">{items.length > 0 && <span className="ws-recurring-count"><b>{activeCount}</b> active <i/> {items.length - activeCount} paused</span>}<button className="ws-button primary" onClick={() => { if (creating) { setCreating(false); setEditingSchedule(null); } else openCreate(); }}><Plus/>{creating ? "Close form" : "Create schedule"}</button></div></div>
+      {creating && <ScheduleForm key={editingSchedule?.id || "new-schedule"} customers={customers} baseCurrency={baseCurrency} currency={currency} setCurrency={setCurrency} schedule={editingSchedule} busy={busy} onCancel={() => { setCreating(false); setEditingSchedule(null); }} onSubmit={save}/>}
       {items.length > 0 && <label className="ws-recurring-search"><Search/><input aria-label="Search recurring schedules" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search schedules by name or customer"/></label>}
-      {filtered.length > 0 ? <div className="ws-recurring-list">{filtered.map(schedule => <article className="ws-recurring-row" key={schedule.id}><span className="ws-recurring-row-icon"><CalendarDays/></span><div className="ws-recurring-row-main"><b>{schedule.description || "Recurring invoice"}</b><small>{schedule.customerName || "Customer"} · {schedule.frequency}</small></div><div className="ws-recurring-next"><small>Next draft</small><b>{dateLabel(schedule.nextRunOn)}</b></div><span className={`ws-recurring-status ${schedule.isActive ? "active" : "paused"}`}><i/>{schedule.isActive ? "Active" : "Paused"}</span><button className="ws-recurring-toggle" disabled={busy} onClick={() => toggle(schedule)}>{schedule.isActive ? <><Pause/> Pause</> : <><Play/> Resume</>}</button></article>)}</div> : items.length > 0 ? <div className="ws-recurring-empty compact"><Search/><b>No schedules match that search</b><span>Try a different customer or schedule name.</span></div> : <div className="ws-recurring-empty"><span className="ws-recurring-empty-icon"><CalendarDays/><i><Plus/></i></span><b>No recurring schedules yet</b><span>Set one up and Invoice AI will create regular invoice drafts for you to review.</span>{!creating && <button className="ws-button primary" onClick={() => setCreating(true)}><Plus/> Create your first schedule</button>}</div>}
+      {filtered.length > 0 ? <div className="ws-recurring-list">{filtered.map(schedule => <article className="ws-recurring-row" key={schedule.id}><span className="ws-recurring-row-icon"><CalendarDays/></span><div className="ws-recurring-row-main"><b>{schedule.description || "Recurring invoice"}</b><small>{schedule.customerName || "Customer"} · {schedule.frequency}</small></div><div className="ws-recurring-next"><small>Next draft</small><b>{dateLabel(schedule.nextRunOn)}</b></div><span className={`ws-recurring-status ${schedule.isActive ? "active" : "paused"}`}><i/>{schedule.isActive ? "Active" : "Paused"}</span><div className="ws-recurring-row-actions"><button className="ws-recurring-toggle" disabled={busy} onClick={() => openEdit(schedule)}><Pencil/> Edit</button><button className="ws-recurring-toggle" disabled={busy} onClick={() => toggle(schedule)}>{schedule.isActive ? <><Pause/> Pause</> : <><Play/> Resume</>}</button></div></article>)}</div> : items.length > 0 ? <div className="ws-recurring-empty compact"><Search/><b>No schedules match that search</b><span>Try a different customer or schedule name.</span></div> : <div className="ws-recurring-empty"><span className="ws-recurring-empty-icon"><CalendarDays/><i><Plus/></i></span><b>No recurring schedules yet</b><span>Set one up and Invoice AI will create regular invoice drafts for you to review.</span>{!creating && <button className="ws-button primary" onClick={openCreate}><Plus/> Create your first schedule</button>}</div>}
       <p className="ws-recurring-footnote"><Clock3/> Drafts are created for you to check. Invoice AI does not send invoices or collect payments automatically.</p>
     </section>
   </div>;
