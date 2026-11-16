@@ -475,3 +475,8 @@
 .workspace .ws-sidebar>.ws-logout:hover{border-color:#a984ff66;background:#ffffff17;color:#fff}
 .workspace .ws-sidebar>.ws-logout:focus-visible{outline:3px solid #b79aff;outline-offset:2px}
 @media(max-width:620px){.workspace .ws-sidebar>.ws-logout{position:static!important;inset:auto!important;flex:0 0 auto;width:100%!important;min-width:100%!important;height:auto!important;padding:12px!important;border:1px solid #ffffff2e!important;border-radius:11px!important;font-size:12px!important;white-space:nowrap!important}}
+.workspace .ws-list-state{display:flex;align-items:center;justify-content:center;gap:10px;min-height:118px;padding:20px;border:1px dashed #ded5f1;border-radius:12px;background:linear-gradient(145deg,#fcfbff,#f7f3ff);color:#655b81;font-size:12px}
+.workspace .ws-list-state>svg{width:17px;height:17px;color:#7042df;animation:ws-list-spin 1.1s linear infinite}
+.workspace .ws-list-state.error{justify-content:space-between;border-color:#efcbca;background:#fffafa;color:#8f3838}
+.workspace .ws-list-state.error>svg{animation:none}
+@keyframes ws-list-spin{to{transform:rotate(360deg)}}
