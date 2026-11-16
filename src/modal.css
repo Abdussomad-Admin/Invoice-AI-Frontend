@@ -13,19 +13,19 @@
   width: min(660px, 100%);
   max-height: min(88dvh, 840px);
   overflow: auto;
-  border: 1px solid #ffffff30;
+  border: 1px solid #e6def5;
   border-radius: 20px;
-  background: linear-gradient(145deg,#261057 0%,#351777 60%,#482099 100%);
+  background: #fff;
   box-shadow: 0 32px 100px rgba(21, 11, 59, .34), 0 5px 20px rgba(75, 44, 142, .16);
   scrollbar-width: thin;
-  scrollbar-color: #b894ff #ffffff12;
+  scrollbar-color: #9471df #f4f0fb;
   scrollbar-gutter: stable;
   animation: ws-modal-rise .24s cubic-bezier(.2,.8,.2,1);
 }
 .ws-modal:focus { outline: none; }
 .ws-modal::-webkit-scrollbar { width: 6px; }
-.ws-modal::-webkit-scrollbar-track { background: #ffffff12; }
-.ws-modal::-webkit-scrollbar-thumb { border: 1px solid #ffffff38; border-radius: 8px; background: #9c75ef; }
+.ws-modal::-webkit-scrollbar-track { background: #f4f0fb; }
+.ws-modal::-webkit-scrollbar-thumb { border: 1px solid #ffffff; border-radius: 8px; background: #9471df; }
 .ws-modal::-webkit-scrollbar-thumb:hover { background: #b894ff; }
 .ws-modal-head {
   position: sticky;
@@ -48,16 +48,16 @@
 .ws-modal-close:focus-visible { outline: 3px solid #d8c3ff; outline-offset: 2px; }
 .ws-modal-body { padding: 24px; }
 .ws-modal-body .ws-form-grid { gap: 16px; }
-.ws-modal-body .ws-form-grid label { color: #f2ecff; font-size: 11px; }
-.ws-modal-body .ws-form-grid label small { display:block; margin-top:5px; color:#d3c4ed; font-size:10px; line-height:1.45; }
+.ws-modal-body .ws-form-grid label { color: #302752; font-size: 11px; }
+.ws-modal-body .ws-form-grid label small { display:block; margin-top:5px; color:#77718f; font-size:10px; line-height:1.45; }
 .ws-modal-body .ws-form-grid input, .ws-modal-body .ws-form-grid select { min-height: 44px; border: 1px solid #e3dff0; border-radius: 11px; background: #fff; font-size: 13px; transition: border-color .15s,box-shadow .15s; }
 .ws-modal-body .ws-form-grid input:focus, .ws-modal-body .ws-form-grid select:focus { border-color: #8762ec; box-shadow: 0 0 0 3px #7649e91a; }
-.ws-modal-body .ws-form-actions { padding-top: 18px; border-top: 1px solid #ffffff24; }
+.ws-modal-body .ws-form-actions { padding-top: 18px; border-top: 1px solid #eee9f6; }
 .ws-modal-body .ws-button { min-height: 42px; padding: 0 18px; border-radius: 11px; font-size: 12px; }
-.ws-modal-body .ws-button.primary { border:1px solid #d1b7ff; background:linear-gradient(110deg,#fff,#f0e8ff); color:#422080; box-shadow:0 7px 16px #16093630; }
-.ws-modal-body .ws-button.primary:hover:not(:disabled) { background:#e9dcff; box-shadow:0 9px 20px #16093645; transform:translateY(-1px); }
-.ws-modal-body .ws-button.secondary { border-color:#ffffff55; background:#ffffff10; color:#fff; }
-.ws-modal-body .ws-button.secondary:hover { border-color:#ffffff90; background:#ffffff20; }
+.ws-modal-body .ws-button.primary { border:1px solid #6334d3; background:linear-gradient(110deg,#5422d5,#873fe8); color:#fff; box-shadow:0 7px 16px #6738e82a; }
+.ws-modal-body .ws-button.primary:hover:not(:disabled) { background:linear-gradient(110deg,#4c1dc7,#7931d9); box-shadow:0 9px 20px #6738e83b; transform:translateY(-1px); }
+.ws-modal-body .ws-button.secondary { border-color:#ded5f1; background:#fff; color:#51427e; }
+.ws-modal-body .ws-button.secondary:hover { border-color:#c7b5eb; background:#faf8ff; }
 @keyframes ws-modal-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes ws-modal-rise { from { opacity: 0; transform: translateY(12px) scale(.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @media(max-width:620px) {
@@ -69,10 +69,10 @@
   .ws-modal-head p { font-size: 11px; }
   .ws-modal-body { padding: 17px 16px calc(17px + env(safe-area-inset-bottom)); }
   .ws-modal-body .ws-form-grid { grid-template-columns: 1fr; gap: 13px; }
-  .ws-modal-body .ws-form-actions { position: sticky; bottom: -17px; padding: 14px 0 4px; background: linear-gradient(0deg,#351777 82%,rgba(53,23,119,0)); }
+  .ws-modal-body .ws-form-actions { position: sticky; bottom: -17px; padding: 14px 0 4px; background: linear-gradient(0deg,#fff 82%,rgba(255,255,255,0)); }
 }
 @media(prefers-reduced-motion:reduce) { .ws-modal-backdrop,.ws-modal { animation: none; } }
-.workspace .ws-modal { border-color:#ffffff35; }
+.workspace .ws-modal { border-color:#e6def5; }
 .workspace .ws-modal-mark { border-color:#ffffff35; background:#ffffff19; color:#d6c0ff; }
 .workspace .ws-modal-close { border-color:#ffffff35; background:#ffffff10; color:#fff; }
 .workspace .ws-modal-close:hover { border-color:#ffffff70; background:#ffffff20; color:#fff; }
