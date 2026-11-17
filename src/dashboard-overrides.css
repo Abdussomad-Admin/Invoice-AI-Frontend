@@ -90,6 +90,7 @@
 .ws-money-status-card>span{color:#75869d;font-size:10px;font-weight:600}
 .ws-money-status-card>b{color:#193657;font-size:17px;line-height:1.25}
 .ws-money-status-card>small{color:#8a99ad;font-size:9px;line-height:1.45}
+.ws-money-status-card>.ws-button{justify-self:start;margin-top:4px;min-height:36px}
 .ws-payment-setup,.ws-connected-account,.ws-bank-import-card,.ws-reconcile-start,.ws-reconcile-results{padding:22px}
 .ws-money-section-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:15px;margin-bottom:17px}
 .ws-money-section-heading h3{margin:0;color:#1a3556;font-size:15px;letter-spacing:-.25px}

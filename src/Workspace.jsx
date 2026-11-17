@@ -330,6 +330,15 @@ function PaymentAccountPanel({ data, setData, onError, busy, setBusy }) {
     finally { setBusy(false); }
   }
 
+  async function removeAccountLink(currencyCode) {
+    const confirmed = window.confirm(`Remove the inactive ${currencyCode} account link from Invoice AI? This only clears the saved link here; it does not change anything in Paystack.`);
+    if (!confirmed) return;
+    setBusy(true); onError("");
+    try { setData(await api(`/api/payment-accounts/paystack/${encodeURIComponent(currencyCode)}`, { method: "DELETE" })); }
+    catch (error) { onError(error.message); }
+    finally { setBusy(false); }
+  }
+
   async function connect(e) {
     e.preventDefault();
     const target = e.currentTarget;
@@ -368,7 +377,7 @@ function PaymentAccountPanel({ data, setData, onError, busy, setBusy }) {
       <div className={`ws-money-status ${ready ? "ready" : "pending"}`}><i/>{ready ? "Ready to receive payments" : data.status || "Setup needed"}</div>
     </section>
 
-    {accounts.length > 0 && <section className="ws-money-status-grid" aria-label="Payment account status">{accounts.map(account => <article className="ws-card ws-money-status-card" key={account.currencyCode}><span>{account.currencyCode} settlement account</span><b>{account.isActive && (account.isVerified || data.isTestMode) ? "Ready" : account.isActive ? "Verification pending" : "Inactive"}</b><small>{account.currencyCode} invoice payments settle to this Paystack subaccount.</small></article>)}</section>}
+    {accounts.length > 0 && <section className="ws-money-status-grid" aria-label="Payment account status">{accounts.map(account => <article className="ws-card ws-money-status-card" key={account.currencyCode}><span>{account.currencyCode} settlement account</span><b>{account.isActive && (account.isVerified || data.isTestMode) ? "Ready" : account.isActive ? "Verification pending" : "Inactive"}</b><small>{account.currencyCode} invoice payments settle to this Paystack subaccount.</small>{!account.isActive && <button className="ws-button secondary" type="button" disabled={busy} onClick={() => removeAccountLink(account.currencyCode)}>Remove old link</button>}</article>)}</section>}
 
     {!baseAccount && <section className="ws-card ws-payment-setup">
       <div className="ws-money-section-heading"><div><span className="ws-money-step">STEP 1</span><h3>Where should we send your money?</h3><p>Choose your bank and enter the business account number. We send these details to Paystack to verify the account.</p></div></div>
