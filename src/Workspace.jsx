@@ -611,9 +611,14 @@ function MonthlyCashFlowChart({ rows, currencyCode, loading, error, onRetry }) {
     outgoing: Number(row.cashPaidOut) || 0
   }));
   const hasPayments = chartRows.some(row => row.incoming > 0 || row.outgoing > 0);
+  const totals = chartRows.reduce((result, row) => ({ received: result.received + row.incoming, paid: result.paid + row.outgoing }), { received: 0, paid: 0 });
+  const compactMoney = value => {
+    try { return new Intl.NumberFormat("en-NG", { style: "currency", currency: currencyCode || "NGN", notation: "compact", maximumFractionDigits: 1 }).format(value); }
+    catch { return formatMoney(value, currencyCode); }
+  };
   return <section className="ws-card ws-report-card ws-dashboard-chart">
     <div className="ws-report-card-heading"><div><span>CASH FLOW</span><h3>Money received and paid</h3><p>Recorded customer and supplier payments over the last six months.</p></div><button className="ws-button secondary" onClick={onRetry} disabled={loading}><RefreshCw/>{loading ? "Updating…" : "Refresh chart"}</button></div>
-    {error ? <div className="ws-report-warning" role="status"><span>{error}</span><button className="ws-button secondary" onClick={onRetry}>Try again</button></div> : loading && chartRows.length === 0 ? <div className="ws-report-inline-state">Loading payment activity…</div> : hasPayments ? <><div className="ws-chart-legend"><span><i className="income"/>Cash received</span><span><i className="expenses"/>Cash paid</span></div><GroupedMoneyChart rows={chartRows} currencyCode={currencyCode} label="Bar chart comparing customer payments received with supplier payments made for each of the last six months"/><small className="ws-chart-caption">These are payments recorded in Invoice AI, not unpaid invoice balances. Reversed payments are excluded.</small></> : <div className="ws-chart-empty">Monthly cash-flow bars will appear here after you record a customer or supplier payment.</div>}
+    {error ? <div className="ws-report-warning" role="status"><span>{error}</span><button className="ws-button secondary" onClick={onRetry}>Try again</button></div> : loading && chartRows.length === 0 ? <div className="ws-report-inline-state">Loading payment activity…</div> : hasPayments ? <><div className="ws-chart-legend"><span><i className="income"/>Cash received</span><span><i className="expenses"/>Cash paid</span></div><div className="ws-chart-summary" aria-label="Six-month payment totals"><div className="received"><span>Received · 6 months</span><b>{compactMoney(totals.received)}</b></div><div className="paid"><span>Paid · 6 months</span><b>{compactMoney(totals.paid)}</b></div></div><GroupedMoneyChart rows={chartRows} currencyCode={currencyCode} label="Bar chart comparing customer payments received with supplier payments made for each of the last six months"/><small className="ws-chart-caption">These are payments recorded in Invoice AI, not unpaid invoice balances. Reversed payments are excluded.</small></> : <div className="ws-chart-empty">Monthly cash-flow bars will appear here after you record a customer or supplier payment.</div>}
   </section>;
 }
 
