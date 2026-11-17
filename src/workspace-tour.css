@@ -1,5 +1,5 @@
 .ws-tour-layer{position:fixed;inset:0;z-index:12000;pointer-events:none}
-.ws-tour-dimmer{position:fixed;inset:0;width:100vw;height:100vh;width:100dvw;height:100dvh;pointer-events:auto}
+.ws-tour-dimmer{position:fixed;inset:0;width:100vw;height:100vh;width:100dvw;height:100dvh;pointer-events:none}
 .ws-tour-outline{stroke:#b991ff;stroke-width:2;filter:drop-shadow(0 0 7px #9a6cff);animation:ws-tour-outline-glow 1.8s ease-in-out infinite}
 .ws-tour-beacon{position:fixed;z-index:2;width:18px;height:18px;border:3px solid #fff;border-radius:50%;background:#7437ee;box-shadow:0 0 0 3px #7437ee,0 3px 14px #32106c66;pointer-events:none}
 .ws-tour-beacon i{position:absolute;inset:-8px;border:2px solid #a982ff;border-radius:50%;animation:ws-tour-pulse 1.8s ease-out infinite}
@@ -25,6 +25,9 @@
 .ws-tour-next:hover{background:#f0e8ff;transform:translateY(-1px)}
 .ws-tour-footer svg{width:14px;height:14px}
 .ws-tour-never{display:block;margin:12px auto 0;padding:4px 6px;border:0;background:transparent;color:#d3c4ed;font:500 10px 'DM Sans',Arial;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.ws-tour-action{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:38px;margin-top:14px;padding:0 12px;border:1px solid #bda1ff;border-radius:10px;background:#fff;color:#45248b;font:700 11px 'DM Sans',Arial;cursor:pointer;transition:background .15s,transform .15s}
+.ws-tour-action:hover{transform:translateY(-1px);background:#f0e8ff}
+.ws-tour-action svg{width:14px;height:14px}
 .ws-tour-never:hover{color:#fff}
 .ws-tour-card button:focus-visible{outline:3px solid #d8c3ff;outline-offset:2px}
 .ws-dashboard-hero-actions .ws-tour-launch{display:inline-flex;align-items:center;gap:7px}

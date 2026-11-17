@@ -11,6 +11,12 @@ const STEPS = [
     body: "This dashboard is your starting point. You can create an invoice or add a customer from here, and come back any time to see your business activity."
   },
   {
+    selector: ".ws-dashboard-payment-setup",
+    title: "Connect where online payments should go",
+    body: "If you want customers to pay invoices online, set up the bank account where Paystack should send the money. You can do this now or continue the tour and return later.",
+    actionLabel: "Open payment setup"
+  },
+  {
     selector: ".ws-metrics",
     title: "Know what each number means",
     body: "Income and expenses come from invoices and supplier bills you record. Cash received means customer payments recorded in Invoice AI; it can include bank or online payments, not just physical cash."
@@ -76,7 +82,7 @@ function useTourTarget(stepIndex, active) {
   return geometry;
 }
 
-export default function WorkspaceTour({ open, onClose }) {
+export default function WorkspaceTour({ open, onClose, onPaymentSetup }) {
   const [stepIndex, setStepIndex] = useState(0);
   const dialogRef = useRef(null);
   const nextRef = useRef(null);
@@ -118,7 +124,7 @@ export default function WorkspaceTour({ open, onClose }) {
   if (!open) return null;
 
   const cardWidth = Math.min(370, window.innerWidth - 32);
-  const cardHeight = 290;
+  const cardHeight = 340;
   const cardLeft = geometry
     ? clamp(geometry.x + geometry.width / 2 - cardWidth / 2, 16, window.innerWidth - cardWidth - 16)
     : Math.max(16, (window.innerWidth - cardWidth) / 2);
@@ -141,6 +147,7 @@ export default function WorkspaceTour({ open, onClose }) {
       <div className="ws-tour-card-top"><span className="ws-tour-mark"><CircleHelp/></span><span className="ws-tour-count">STEP {stepIndex + 1} OF {STEPS.length}</span><button className="ws-tour-close" type="button" onClick={() => close("completed")} aria-label="Close guide"><X/></button></div>
       <div className="ws-tour-progress" aria-hidden="true">{STEPS.map((_, index) => <i key={index} className={index <= stepIndex ? "is-active" : ""}/>)}</div>
       <h2 id="ws-tour-title">{step.title}</h2><p id="ws-tour-description" aria-live="polite">{step.body}</p>
+      {step.actionLabel && <button type="button" className="ws-tour-action" onClick={onPaymentSetup}>{step.actionLabel}<ArrowRight/></button>}
       <div className="ws-tour-footer"><button type="button" className="ws-tour-skip" onClick={() => close("completed")}>{stepIndex === 0 ? "Skip tour" : "Exit tour"}</button><div>{stepIndex > 0 && <button type="button" className="ws-tour-back" onClick={() => setStepIndex(index => index - 1)}><ArrowLeft/> Back</button>}{stepIndex === STEPS.length - 1 ? <button ref={nextRef} type="button" className="ws-tour-next" onClick={() => close("completed")}>Finish <Check/></button> : <button ref={nextRef} type="button" className="ws-tour-next" onClick={() => setStepIndex(index => index + 1)}>Next <ArrowRight/></button>}</div></div>
       <button type="button" className="ws-tour-never" onClick={() => close("disabled")}>Don’t show this automatically again</button>
     </section>
