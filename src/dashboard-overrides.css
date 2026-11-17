@@ -448,6 +448,8 @@
 .ws-chart-legend i.expenses,.ws-chart-expenses{fill:#11a879}.ws-chart-legend i.expenses{background:#11a879}
 .ws-chart-scroll{width:100%;overflow-x:auto;overscroll-behavior-inline:contain}
 .ws-money-chart{display:block;width:100%;min-width:430px;height:auto;overflow:visible}
+.ws-dashboard-chart .ws-chart-scroll{display:flex;justify-content:center}
+.ws-dashboard-chart .ws-money-chart{max-width:980px;margin-inline:auto}
 .ws-chart-gridline{stroke:#ebe6f4;stroke-width:1}
 .ws-chart-axis{fill:#817992;font:10px 'DM Sans',Arial,sans-serif}
 .ws-chart-income,.ws-chart-expenses{transition:opacity .15s ease}.ws-money-chart rect:hover{opacity:.78}
