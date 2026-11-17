@@ -113,6 +113,13 @@
 .ws-connected-account-note div{display:grid;gap:4px}
 .ws-connected-account-note b{color:#205a45;font-size:11px}
 .ws-connected-account-note span{color:#6f8b7f;font-size:10px;line-height:1.45}
+.ws-usd-setup-steps{display:grid;gap:7px;margin:14px 0 10px;padding-left:22px;color:#655b7e;font-size:11px;line-height:1.55}
+.ws-payment-usd-setup>.ws-muted{margin:10px 0 14px;color:#756d88;font-size:10px;line-height:1.5}
+.ws-usd-link-form{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:12px;margin:14px 0 0;padding:14px;border:1px solid #e9e3f4;border-radius:12px;background:#fcfbff}
+.ws-usd-link-form label{display:grid;gap:7px;color:#354a67;font-size:10px;font-weight:700}
+.ws-usd-link-form input{min-height:43px;padding:0 12px;border:1px solid #dfd8ed;border-radius:9px;background:#fff;color:#302452;font:500 12px 'DM Sans',Arial}
+.ws-usd-link-form input:focus{border-color:#8058e3;outline:none;box-shadow:0 0 0 3px #8058e31c}
+.ws-usd-link-form small{color:#8291a6;font-size:9px;font-weight:400;line-height:1.45}
 .ws-money-footnote{display:flex;align-items:center;gap:7px;margin:0;color:#8998aa;font-size:9px}
 .ws-money-footnote svg{color:#6884a5}
 .ws-money-shortcuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
@@ -181,7 +188,7 @@
 .ws-match-options i{color:#1678d9;font-size:9px;font-style:normal;font-weight:700;white-space:nowrap}
 .ws-money-page .ws-card-title{margin-bottom:12px}
 @media(max-width:760px){.ws-money-hero{align-items:flex-start;flex-wrap:wrap;padding:19px}.ws-money-status{margin-left:72px}.ws-money-status-grid{grid-template-columns:1fr}.ws-money-shortcuts{grid-template-columns:1fr}.ws-bank-step-list{grid-template-columns:1fr}.ws-bank-step{padding:3px 0}.ws-reconcile-line-main{grid-template-columns:1fr auto;gap:8px}.ws-reconcile-description{grid-column:1/-1;grid-row:2}.ws-reconcile-line-main>strong{grid-column:1;grid-row:3;text-align:left}.ws-reconcile-badge{grid-column:2;grid-row:3}.ws-reconcile-line-actions,.ws-match-options{margin-left:0}.ws-match-options>button{align-items:flex-start;flex-direction:column}}
-@media(max-width:480px){.ws-payment-setup,.ws-connected-account,.ws-bank-import-card,.ws-reconcile-start,.ws-reconcile-results{padding:15px}.ws-money-hero-icon{width:44px;height:44px;flex-basis:44px}.ws-money-hero-copy h2{font-size:17px}.ws-money-status{margin-left:0}.ws-money-section-heading{flex-direction:column}.ws-payment-setup-actions{justify-content:stretch}.ws-payment-setup-actions .ws-button{width:100%}.ws-bank-upload-form{align-items:stretch;flex-direction:column}.ws-bank-upload-form .ws-file-picker{width:100%}.ws-bank-upload-form input{display:block;max-width:100%;margin:8px 0 0}}
+@media(max-width:480px){.ws-payment-setup,.ws-connected-account,.ws-bank-import-card,.ws-reconcile-start,.ws-reconcile-results{padding:15px}.ws-usd-link-form{grid-template-columns:1fr;padding:12px}.ws-usd-link-form>.ws-button{width:100%}.ws-money-hero-icon{width:44px;height:44px;flex-basis:44px}.ws-money-hero-copy h2{font-size:17px}.ws-money-status{margin-left:0}.ws-money-section-heading{flex-direction:column}.ws-payment-setup-actions{justify-content:stretch}.ws-payment-setup-actions .ws-button{width:100%}.ws-bank-upload-form{align-items:stretch;flex-direction:column}.ws-bank-upload-form .ws-file-picker{width:100%}.ws-bank-upload-form input{display:block;max-width:100%;margin:8px 0 0}}
 @media(max-width:1100px){.ws-dashboard-hero{grid-template-columns:minmax(0,1fr) 220px;padding:25px}.ws-action-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.ws-dashboard{gap:18px}.ws-dashboard-hero{grid-template-columns:1fr;min-height:0;padding:22px}.ws-dashboard-art{display:none}.ws-dashboard-hero h2{font-size:24px}.ws-dashboard-hero-actions{flex-wrap:wrap}.ws-period-chip{font-size:9px}.ws-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.ws-metric{min-height:116px;padding:13px!important}.ws-metric>b{font-size:18px}.ws-action-grid{grid-template-columns:1fr}.ws-action-card{min-height:78px}}
 @media(prefers-reduced-motion:reduce){.ws-action-card{transition:none}}

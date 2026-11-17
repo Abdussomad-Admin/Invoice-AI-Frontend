@@ -311,6 +311,7 @@ function PaymentAccountPanel({ data, setData, onError, busy, setBusy }) {
   const [banksLoading, setBanksLoading] = useState(true);
   const [bankError, setBankError] = useState("");
   const [selectedBank, setSelectedBank] = useState("");
+  const [usdSubaccountCode, setUsdSubaccountCode] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -344,7 +345,22 @@ function PaymentAccountPanel({ data, setData, onError, busy, setBusy }) {
     finally { setBusy(false); }
   }
 
-  const ready = data.isActive && (data.isVerified || data.isTestMode);
+  async function connectUsd(e) {
+    e.preventDefault();
+    setBusy(true); onError("");
+    try {
+      await api("/api/payment-accounts/paystack/link", { method: "POST", body: { subaccountCode: usdSubaccountCode.trim() } });
+      setData(await api("/api/payment-accounts/paystack"));
+      setUsdSubaccountCode("");
+    } catch (error) { onError(error.message); }
+    finally { setBusy(false); }
+  }
+
+  const accounts = asList(data.accounts);
+  const ready = accounts.length ? accounts.some(account => account.isActive && (account.isVerified || data.isTestMode)) : data.isActive && (data.isVerified || data.isTestMode);
+  const usdEligibleCountry = ["NG", "KE"].includes(String(data.countryCode || "").toUpperCase());
+  const usdAccount = accounts.find(account => account.currencyCode === "USD");
+  const baseAccount = accounts.find(account => account.currencyCode === (data.defaultPaymentCurrencyCode || data.baseCurrencyCode));
   return <div className="ws-money-page">
     <section className="ws-card ws-money-hero">
       <div className="ws-money-hero-icon"><WalletCards/></div>
@@ -352,13 +368,9 @@ function PaymentAccountPanel({ data, setData, onError, busy, setBusy }) {
       <div className={`ws-money-status ${ready ? "ready" : "pending"}`}><i/>{ready ? "Ready to receive payments" : data.status || "Setup needed"}</div>
     </section>
 
-    <section className="ws-money-status-grid" aria-label="Payment account status">
-      <article className="ws-card ws-money-status-card"><span>Settlement account</span><b>{data.status === "Not set up" ? "Not connected" : "Connected"}</b><small>The bank account Paystack will pay into</small></article>
-      <article className="ws-card ws-money-status-card"><span>Verification</span><b>{data.isVerified ? "Verified" : data.isTestMode ? "Test mode" : data.status === "Not set up" ? "Not started" : "In progress"}</b><small>{data.isTestMode ? "Verification is not required for test payments" : "Paystack confirms the account details"}</small></article>
-      <article className="ws-card ws-money-status-card"><span>Payment currency</span><b>{data.currencyCode || baseCurrencyCodeFallback(data)}</b><small>Set by your business workspace</small></article>
-    </section>
+    {accounts.length > 0 && <section className="ws-money-status-grid" aria-label="Payment account status">{accounts.map(account => <article className="ws-card ws-money-status-card" key={account.currencyCode}><span>{account.currencyCode} settlement account</span><b>{account.isActive && (account.isVerified || data.isTestMode) ? "Ready" : account.isActive ? "Verification pending" : "Inactive"}</b><small>{account.currencyCode} invoice payments settle to this Paystack subaccount.</small></article>)}</section>}
 
-    {data.status === "Not set up" ? <section className="ws-card ws-payment-setup">
+    {!baseAccount && <section className="ws-card ws-payment-setup">
       <div className="ws-money-section-heading"><div><span className="ws-money-step">STEP 1</span><h3>Where should we send your money?</h3><p>Choose your bank and enter the business account number. We send these details to Paystack to verify the account.</p></div></div>
       {bankError && <div className="ws-money-inline-error" role="alert"><b>We couldn’t load the bank list.</b><span>{bankError}</span><button className="ws-button secondary" type="button" onClick={() => window.location.reload()}>Try again</button></div>}
       <form className="ws-payment-form ws-payment-setup-form" onSubmit={connect}>
@@ -369,9 +381,16 @@ function PaymentAccountPanel({ data, setData, onError, busy, setBusy }) {
         <div className="ws-payment-privacy"><Shield size={16}/><span>Your account number is sent securely to Paystack for verification. Invoice AI doesn’t store it.</span></div>
         <div className="ws-payment-setup-actions"><button className="ws-button primary" disabled={busy || banksLoading || banks.length === 0}>{busy ? "Connecting your account…" : "Connect bank account"}</button></div>
       </form>
-    </section> : <section className="ws-card ws-connected-account">
-      <div className="ws-money-section-heading"><div><span className="ws-money-step">ACCOUNT</span><h3>Your payment account</h3><p>{ready ? "Customers can pay your invoices online." : "Paystack is still checking the account. You can refresh the status here."}</p></div><button className="ws-button secondary" disabled={busy} onClick={refreshStatus}><RefreshCw/>{busy ? "Checking…" : "Refresh status"}</button></div>
-      <div className="ws-connected-account-note"><CheckCircle2/><div><b>{ready ? "Account connected" : "Verification pending"}</b><span>{ready ? "New online invoice payments will be settled to your selected bank account." : "Online payments become available after Paystack verifies your details."}</span></div></div>
+    </section>}
+    {accounts.length > 0 && <section className="ws-card ws-connected-account">
+      <div className="ws-money-section-heading"><div><span className="ws-money-step">CONNECTED ACCOUNTS</span><h3>Your Paystack settlement accounts</h3><p>{ready ? "Invoices can use the connected account with the same currency." : "Paystack is still verifying your connected account details."}</p></div><button className="ws-button secondary" disabled={busy} onClick={refreshStatus}><RefreshCw/>{busy ? "Checking…" : "Refresh status"}</button></div>
+      <div className="ws-connected-account-note"><CheckCircle2/><div><b>{ready ? "Account connected" : "Verification pending"}</b><span>Invoice currency must match a ready Paystack subaccount currency.</span></div></div>
+    </section>}
+    {usdEligibleCountry && !usdAccount && <section className="ws-card ws-payment-setup ws-payment-usd-setup">
+      <div className="ws-money-section-heading"><div><span className="ws-money-step">OPTIONAL · USD</span><h3>Accept USD invoice payments</h3><p>Create a USD subaccount in your Paystack dashboard, then connect its code here. Paystack must enable USD for your business first.</p></div></div>
+      <ol className="ws-usd-setup-steps"><li>In Paystack, request or enable international USD payments for your business.</li><li>Create a subaccount with currency set to USD and complete Paystack’s account verification.</li><li>Copy its subaccount code and connect it below.</li></ol>
+      {data.countryCode?.toUpperCase() === "NG" && <p className="ws-muted">For payouts in USD, Paystack requires an approved USD domiciliary account. Otherwise, create invoices in NGN for local-currency settlement.</p>}
+      <form className="ws-payment-form ws-usd-link-form" onSubmit={connectUsd}><label>USD subaccount code<input value={usdSubaccountCode} onChange={event=>setUsdSubaccountCode(event.target.value)} autoComplete="off" placeholder="ACCT_…" maxLength={100} required/><small>Invoice AI verifies the code and USD currency directly with Paystack.</small></label><button className="ws-button primary" disabled={busy}>{busy ? "Verifying USD account…" : "Connect USD account"}</button></form>
     </section>}
     <p className="ws-money-footnote"><Shield size={14}/> Card details are entered on Paystack’s secure checkout page. Invoice AI never handles or stores card details.</p>
   </div>;
