@@ -703,7 +703,7 @@ function CreditReadinessPage({ data, loading, error, onRetry, navigate }) {
     {loading && <section className="ws-card ws-report-state" role="status"><RefreshCw/><h2>Checking your records</h2><p>We’re gathering information saved in this workspace.</p></section>}
     {!loading && error && <section className="ws-card ws-report-state" role="alert"><CircleHelp/><h2>We couldn’t check your records</h2><p>{error}</p><button className="ws-button primary" onClick={onRetry}><RefreshCw/> Try again</button></section>}
     {!loading && data && <>
-      <section className="ws-card ws-report-card ws-readiness-checklist"><div className="ws-report-card-heading"><div><span>YOUR RECORD CHECKLIST</span><h3>{readiness.recorded} of {readiness.total} record areas have information</h3><p>{readiness.summary}</p></div><button className="ws-button secondary" onClick={onRetry}><RefreshCw/> Refresh</button></div>
+      <section className="ws-card ws-report-card ws-readiness-checklist ws-readiness-card"><div className="ws-report-card-heading"><div><span>YOUR RECORD CHECKLIST</span><h3>{readiness.recorded} of {readiness.total} record areas have information</h3><p>{readiness.summary}</p></div><button className="ws-button secondary" onClick={onRetry}><RefreshCw/> Refresh</button></div>
         <div className="ws-readiness-progress" role="progressbar" aria-label="Record areas with information" aria-valuemin={0} aria-valuemax={readiness.total} aria-valuenow={readiness.recorded}><span style={{width:`${readiness.total ? readiness.recorded / readiness.total * 100 : 0}%`}}/></div>
         {readiness.items.length ? <div className="ws-readiness-list">{readiness.items.map((item,index)=><article key={`${item.label}-${index}`}><span className={`ws-readiness-status ${item.complete ? "is-ready" : item.status === "Review needed" ? "needs-review" : "not-added"}`} aria-hidden="true">{item.complete ? <CheckCircle2/> : <CircleHelp/>}</span><div><b>{item.label}</b><p>{item.detail}</p></div><strong>{item.status}</strong>{item.action && <button className="ws-text-button" onClick={()=>navigate(item.action.path)}>{item.action.label}<ArrowRight/></button>}</article>)}</div> : <p className="ws-report-inline-state">Your checklist is empty right now. Refresh this page or review financial records.</p>}
       </section>
@@ -1134,7 +1134,3 @@ export default function Workspace({ path, navigate }) {
       {!info[1] && !["/app/upload-supplier-invoice", "/app/bank-import", "/app/bank-reconciliation", "/app/invoice-detail", "/app/invoice-preview", "/app/security", "/app/preferences", "/app/notifications", "/app/help", "/app/billing/return", "/app/financial-records", "/app/credit-readiness", "/app/financial-guidance"].includes(path) && <section className="ws-card ws-empty-card"><h2>{info[0]}</h2><p>This part of Invoice AI is not ready yet. You can continue using the other workspace tools from the menu.</p></section>}
       <footer className="ws-footer">Invoice AI · Smart. Simple. Powerful.</footer></section></main><WorkspaceTour open={tourOpen} onClose={closeTour} onPaymentSetup={()=>{closeTour("completed");navigate("/app/payment-account")}}/></div>;
 }
-
-
-
-

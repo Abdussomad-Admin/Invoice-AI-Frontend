@@ -475,31 +475,35 @@
 .ws-readiness-checklist .ws-report-card-heading p{margin-top:5px;color:#756d88;font-size:12px;line-height:1.5}
 .ws-readiness-progress{height:7px;overflow:hidden;margin:0 0 16px;border-radius:99px;background:#eee9f7}
 .ws-readiness-progress span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#7042df,#9849f3);transition:width .25s ease}
-.ws-credit-readiness .ws-readiness-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
-.ws-credit-readiness .ws-readiness-list article{display:grid;grid-template-columns:38px minmax(0,1fr) auto;align-items:start;gap:10px;min-width:0;padding:15px;border:1px solid #e9e3f4;border-radius:13px;background:linear-gradient(145deg,#fff,#fcfaff);transition:border-color .16s,box-shadow .16s}
-.ws-credit-readiness .ws-readiness-list article:hover{border-color:#d2c4ee;box-shadow:0 5px 16px #32206f0b}
-.ws-credit-readiness .ws-readiness-list article:last-child:nth-child(odd){grid-column:1/-1}
+.ws-readiness-card{padding:22px}
+.ws-readiness-card .ws-report-card-heading{align-items:flex-start;margin-bottom:14px}
+.ws-readiness-card .ws-report-card-heading h3{margin-top:6px;color:#241846;font-size:18px;letter-spacing:-.25px}
+.ws-readiness-card .ws-report-card-heading p{margin-top:5px;color:#756d88;font-size:12px;line-height:1.5}
+.ws-readiness-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.ws-readiness-list article{display:grid;grid-template-columns:38px minmax(0,1fr) auto;align-items:start;gap:10px;min-width:0;padding:15px;border:1px solid #e9e3f4;border-radius:13px;background:linear-gradient(145deg,#fff,#fcfaff);transition:border-color .16s,box-shadow .16s}
+.ws-readiness-list article:hover{border-color:#d2c4ee;box-shadow:0 5px 16px #32206f0b}
+.ws-readiness-list article:last-child:nth-child(odd){grid-column:1/-1}
 .ws-readiness-status{display:grid;place-items:center;grid-column:1;grid-row:1/span 2;width:36px;height:36px;border-radius:11px;background:#f1edfa;color:#746a8a}
 .ws-readiness-status svg{width:20px;height:20px}
 .ws-readiness-status.is-ready{background:#e7f8f1;color:#13835d}
 .ws-readiness-status.needs-review{background:#fff4dc;color:#9b6811}
 .ws-readiness-status.not-added{background:#f1edfa;color:#746a8a}
-.ws-credit-readiness .ws-readiness-list article>div{grid-column:2;grid-row:1/span 2;min-width:0}
-.ws-credit-readiness .ws-readiness-list article>div>b{display:block;margin:1px 0 5px;color:#302452;font-size:13px;line-height:1.35}
-.ws-credit-readiness .ws-readiness-list article>div>p{margin:0;color:#77718f;font-size:11px;line-height:1.55}
-.ws-credit-readiness .ws-readiness-list article>strong{grid-column:3;grid-row:1;justify-self:end;padding:5px 8px;border:1px solid #e8e2f2;border-radius:99px;background:#f8f6fc;color:#746a8a;font-size:9px;line-height:1.2;white-space:nowrap}
-.ws-credit-readiness .ws-readiness-list article:has(.ws-readiness-status.is-ready)>strong{border-color:#d1efe2;background:#edf9f4;color:#137753}
-.ws-credit-readiness .ws-readiness-list article:has(.ws-readiness-status.needs-review)>strong{border-color:#f3e1b7;background:#fff8e9;color:#95620e}
-.ws-credit-readiness .ws-readiness-list article>.ws-text-button{grid-column:2/4;grid-row:3;justify-self:start;margin-top:2px;font-size:11px}
-.ws-credit-readiness .ws-readiness-list article>.ws-text-button svg{width:14px;height:14px}
+.ws-readiness-list article>div{grid-column:2;grid-row:1/span 2;min-width:0}
+.ws-readiness-list article>div>b{display:block;margin:1px 0 5px;color:#302452;font-size:13px;line-height:1.35}
+.ws-readiness-list article>div>p{margin:0;color:#77718f;font-size:11px;line-height:1.55}
+.ws-readiness-list article>strong{grid-column:3;grid-row:1;justify-self:end;padding:5px 8px;border:1px solid #e8e2f2;border-radius:99px;background:#f8f6fc;color:#746a8a;font-size:9px;line-height:1.2;white-space:nowrap}
+.ws-readiness-list article:has(.ws-readiness-status.is-ready)>strong{border-color:#d1efe2;background:#edf9f4;color:#137753}
+.ws-readiness-list article:has(.ws-readiness-status.needs-review)>strong{border-color:#f3e1b7;background:#fff8e9;color:#95620e}
+.ws-readiness-list article>.ws-text-button{grid-column:2/4;grid-row:3;justify-self:start;margin-top:2px;font-size:11px}
+.ws-readiness-list article>.ws-text-button svg{width:14px;height:14px}
 .ws-credit-readiness .ws-readiness-checklist>.ws-muted{margin:13px 0 0;color:#817992;font-size:10px;line-height:1.5}
 .ws-credit-readiness-note{display:flex;align-items:flex-start;gap:12px;padding:15px 17px;border:1px solid #e6def5;border-radius:13px;background:#faf8ff;color:#645b78}
 .ws-credit-readiness-note>svg{flex:0 0 19px;color:#7543df}
 .ws-credit-readiness-note p{margin:0;font-size:11px;line-height:1.65}
 .ws-credit-readiness-note b{color:#302452}
 .ws-credit-readiness-actions{display:flex;flex-wrap:wrap;gap:9px}
-@media(max-width:700px){.ws-credit-readiness .ws-readiness-list{grid-template-columns:1fr}}
-@media(max-width:640px){.ws-credit-readiness-intro{align-items:flex-start;flex-wrap:wrap;padding:16px}.ws-credit-readiness-intro>div{flex:1 1 calc(100% - 65px)}.ws-credit-readiness-intro>.ws-button{width:100%;justify-content:center}.ws-readiness-checklist{padding:16px}.ws-readiness-checklist .ws-report-card-heading{flex-direction:row;align-items:flex-start}.ws-readiness-checklist .ws-report-card-heading>.ws-button{flex:0 0 auto;width:auto}.ws-credit-readiness .ws-readiness-list article{grid-template-columns:34px minmax(0,1fr) auto;padding:13px}.ws-credit-readiness .ws-readiness-list article:last-child:nth-child(odd){grid-column:auto}.ws-credit-readiness .ws-readiness-list article>strong{grid-column:3;grid-row:1}.ws-credit-readiness .ws-readiness-list article>.ws-text-button{grid-column:2/4;grid-row:3;justify-self:start}}
+@media(max-width:700px){.ws-readiness-list{grid-template-columns:1fr}}
+@media(max-width:640px){.ws-credit-readiness-intro{align-items:flex-start;flex-wrap:wrap;padding:16px}.ws-credit-readiness-intro>div{flex:1 1 calc(100% - 65px)}.ws-credit-readiness-intro>.ws-button{width:100%;justify-content:center}.ws-readiness-card{padding:16px}.ws-readiness-card .ws-report-card-heading{flex-direction:row;align-items:flex-start}.ws-readiness-card .ws-report-card-heading>.ws-button{flex:0 0 auto;width:auto}.ws-readiness-list article{grid-template-columns:34px minmax(0,1fr) auto;padding:13px}.ws-readiness-list article:last-child:nth-child(odd){grid-column:auto}.ws-readiness-list article>strong{grid-column:3;grid-row:1}.ws-readiness-list article>.ws-text-button{grid-column:2/4;grid-row:3;justify-self:start}}
 
 /* Keep sign out readable and comfortably tappable in the mobile drawer. */
 .workspace .ws-sidebar>.ws-logout{display:flex;align-items:center;justify-content:flex-start;gap:10px;box-sizing:border-box;min-width:0;min-height:46px;margin-top:10px;padding:11px 12px;border:1px solid #ffffff26;border-radius:11px;background:#ffffff0c;color:#e9e2ff;font-size:12px;font-weight:700;line-height:1.2;white-space:nowrap;transition:background .16s ease,border-color .16s ease,color .16s ease}
