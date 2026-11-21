@@ -806,7 +806,7 @@ function DashboardOverview({ data, trend, trendLoading, trendError, records, rec
   ];
 
   return <div className="ws-dashboard">
-    {isNew && <section className="ws-dashboard-hero is-new">
+    <section className={`ws-dashboard-hero${isNew ? " is-new" : ""}`}>
       <div className="ws-dashboard-hero-copy">
         <span className="ws-dashboard-kicker"><Sparkles size={14}/> YOUR FINANCES</span>
         <h2>{isNew ? "Your workspace is ready" : "Your finances, at a glance"}</h2>
@@ -821,16 +821,16 @@ function DashboardOverview({ data, trend, trendLoading, trendError, records, rec
         </div>
       </div>
       <div className="ws-dashboard-art" aria-hidden="true"><div className="ws-art-orbit orbit-one"/><div className="ws-art-orbit orbit-two"/><span className="ws-art-icon"><ChartNoAxesCombined/></span><span className="ws-art-chip"><CheckCircle2/> Clear financial picture</span></div>
-    </section>}
+    </section>
 
-    {isNew && <><div className="ws-section-heading"><div><h2>Financial overview</h2><p>Key figures for your current reporting period</p></div><span className="ws-period-chip"><CalendarDays/>{dateLabel}</span></div>
-    <section className="ws-metrics">{metrics.map(([label,value,Icon,tone,description])=><article className={`ws-metric ${tone}`} key={label}><div className="ws-metric-top"><span>{label}</span><i><Icon/></i></div><b>{formatMoney(value, read(summary, "currencyCode") || "NGN")}</b><small>{description}</small></article>)}</section></>}
+    <div className="ws-section-heading"><div><h2>Financial overview</h2><p>Key figures for your current reporting period</p></div><span className="ws-period-chip"><CalendarDays/>{dateLabel}</span></div>
+    <section className="ws-metrics">{metrics.map(([label,value,Icon,tone,description])=><article className={`ws-metric ${tone}`} key={label}><div className="ws-metric-top"><span>{label}</span><i><Icon/></i></div><b>{formatMoney(value, read(summary, "currencyCode") || "NGN")}</b><small>{description}</small></article>)}</section>
 
     <MonthlyCashFlowChart rows={trend?.monthly} currencyCode={trend?.currencyCode || read(summary,"currencyCode") || "NGN"} loading={trendLoading} error={trendError} onRetry={onRetryTrend}/>
 
-    {!isNew && <DashboardPanels records={records} recordsLoading={recordsLoading} periodIncome={periodValues.income} currencyCode={read(summary,"currencyCode") || "NGN"} navigate={navigate} setQuestion={setQuestion}/>}
-    {isNew && <><div className="ws-section-heading ws-actions-heading"><div><h2>Get started</h2><p>A few simple steps will make this dashboard more useful.</p></div></div>
-    <section className="ws-action-grid">{actions.map(([href,title,description,Icon],index)=><button className={`ws-action-card action-${index+1}`} key={href} onClick={() => navigate(href)}><span><Icon/></span><span className="ws-action-copy"><b>{title}</b><small>{description}</small></span><ArrowUpRight className="ws-action-arrow"/></button>)}</section></>}
+    <DashboardPanels records={records} recordsLoading={recordsLoading} periodIncome={periodValues.income} currencyCode={read(summary,"currencyCode") || "NGN"} navigate={navigate} setQuestion={setQuestion}/>
+    <div className="ws-section-heading ws-actions-heading"><div><h2>{isNew ? "Get started" : "Quick actions"}</h2><p>{isNew ? "A few simple steps will make this dashboard more useful." : "Common tasks, ready when you are."}</p></div></div>
+    <section className="ws-action-grid">{actions.map(([href,title,description,Icon],index)=><button className={`ws-action-card action-${index+1}`} key={href} onClick={() => navigate(href)}><span><Icon/></span><span className="ws-action-copy"><b>{title}</b><small>{description}</small></span><ArrowUpRight className="ws-action-arrow"/></button>)}</section>
   </div>;
 }
 
