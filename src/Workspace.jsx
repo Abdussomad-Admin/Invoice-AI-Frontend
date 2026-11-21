@@ -602,27 +602,29 @@ function periodBounds(period) {
 
 function GroupedMoneyChart({ rows, currencyCode, label }) {
   if (!rows.length) return <div className="ws-chart-empty">Chart will appear when there is activity to compare.</div>;
-  const width = 640, height = 230, left = 58, right = 14, top = 14, bottom = 42;
+  const width = 1100, height = 320, left = 76, right = 18, top = 30, bottom = 52;
   const plotWidth = width - left - right, plotHeight = height - top - bottom;
   const maxValue = Math.max(1, ...rows.flatMap(row => [Number(row.income) || 0, Number(row.expenses) || 0, Number(row.incoming) || 0, Number(row.outgoing) || 0]));
-  const ticks = [0, 0.5, 1];
+  const ticks = [0, 0.25, 0.5, 0.75, 1];
   const axisMoney = value => { try { return new Intl.NumberFormat("en-NG", { style: "currency", currency: currencyCode || "NGN", notation: "compact", maximumFractionDigits: 1 }).format(value); } catch { return String(value); } };
+  const barLabel = value => { try { return new Intl.NumberFormat("en-NG", { notation: "compact", maximumFractionDigits: 1 }).format(value); } catch { return Number(value || 0).toLocaleString(); } };
   const slot = plotWidth / rows.length;
-  const barWidth = Math.min(24, slot * .27);
+  const barWidth = Math.min(30, slot * .25);
   const dateLabel = value => {
     if (!value) return "";
+    if (/^Week\s/i.test(String(value))) return String(value);
     const date = new Date(`${String(value).slice(0, 7)}-01T00:00:00`);
     return Number.isNaN(date.getTime()) ? String(value).slice(0, 7) : date.toLocaleDateString("en-NG", { month: "short" });
   };
   return <div className="ws-chart-scroll"><svg className="ws-money-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label}>
-    {ticks.map(tick => { const y = top + plotHeight * (1 - tick); return <g key={tick}><line x1={left} x2={width - right} y1={y} y2={y} className="ws-chart-gridline"/><text x={left - 8} y={y + 4} textAnchor="end" className="ws-chart-axis">{axisMoney(maxValue * tick)}</text></g>; })}
+    {ticks.map(tick => { const y = top + plotHeight * (1 - tick); return <g key={tick}><line x1={left} x2={width - right} y1={y} y2={y} className="ws-chart-gridline"/><text x={left - 9} y={y + 4} textAnchor="end" className="ws-chart-axis">{axisMoney(maxValue * tick)}</text></g>; })}
     {rows.map((row,index) => {
       const center = left + slot * (index + .5);
       const first = Number(row.income ?? row.incoming) || 0;
       const second = Number(row.expenses ?? row.outgoing) || 0;
       const firstHeight = Math.max(0, first / maxValue * plotHeight), secondHeight = Math.max(0, second / maxValue * plotHeight);
       const month = row.month || row.label || `Period ${index + 1}`;
-      return <g key={`${month}-${index}`}><rect x={center - barWidth - 3} y={top + plotHeight - firstHeight} width={barWidth} height={firstHeight} rx="4" className="ws-chart-income"><title>{`Money in: ${formatMoney(first,currencyCode)}`}</title></rect><rect x={center + 3} y={top + plotHeight - secondHeight} width={barWidth} height={secondHeight} rx="4" className="ws-chart-expenses"><title>{`Money out: ${formatMoney(second,currencyCode)}`}</title></rect><text x={center} y={height - 14} textAnchor="middle" className="ws-chart-axis">{dateLabel(month)}</text></g>;
+      return <g key={`${month}-${index}`}><rect x={center - barWidth - 4} y={top + plotHeight - firstHeight} width={barWidth} height={firstHeight} rx="6" className="ws-chart-income"><title>{`Cash received / income: ${formatMoney(first,currencyCode)}`}</title></rect><rect x={center + 4} y={top + plotHeight - secondHeight} width={barWidth} height={secondHeight} rx="6" className="ws-chart-expenses"><title>{`Cash paid / expenses: ${formatMoney(second,currencyCode)}`}</title></rect>{first > 0 && <text x={center - barWidth / 2 - 4} y={Math.max(top - 8, top + plotHeight - firstHeight - 8)} textAnchor="middle" className="ws-chart-value">{barLabel(first)}</text>}{second > 0 && <text x={center + barWidth / 2 + 4} y={Math.max(top - 8, top + plotHeight - secondHeight - 8)} textAnchor="middle" className="ws-chart-value">{barLabel(second)}</text>}<text x={center} y={height - 17} textAnchor="middle" className="ws-chart-axis ws-chart-month">{dateLabel(month)}</text></g>;
     })}
   </svg></div>;
 }
@@ -633,7 +635,8 @@ function MonthlyIncomeExpenseChart({ rows, currencyCode }) {
 }
 
 function MonthlyCashFlowChart({ rows, currencyCode, loading, error, onRetry }) {
-  const chartRows = asList(rows).slice(-6).map(row => ({
+  const [range, setRange] = useState(6);
+  const chartRows = asList(rows).slice(-range).map(row => ({
     month: row.month,
     incoming: Number(row.cashReceived) || 0,
     outgoing: Number(row.cashPaidOut) || 0
@@ -645,8 +648,8 @@ function MonthlyCashFlowChart({ rows, currencyCode, loading, error, onRetry }) {
     catch { return formatMoney(value, currencyCode); }
   };
   return <section className="ws-card ws-report-card ws-dashboard-chart">
-    <div className="ws-report-card-heading"><div><span>CASH FLOW</span><h3>Money received and paid</h3><p>Recorded customer and supplier payments over the last six months.</p></div><button className="ws-button secondary" onClick={onRetry} disabled={loading}><RefreshCw/>{loading ? "Updating…" : "Refresh chart"}</button></div>
-    {error ? <div className="ws-report-warning" role="status"><span>{error}</span><button className="ws-button secondary" onClick={onRetry}>Try again</button></div> : loading && chartRows.length === 0 ? <div className="ws-report-inline-state">Loading payment activity…</div> : hasPayments ? <><div className="ws-chart-legend"><span><i className="income"/>Cash received</span><span><i className="expenses"/>Cash paid</span></div><div className="ws-chart-summary" aria-label="Six-month payment totals"><div className="received"><span>Received · 6 months</span><b>{compactMoney(totals.received)}</b></div><div className="paid"><span>Paid · 6 months</span><b>{compactMoney(totals.paid)}</b></div></div><GroupedMoneyChart rows={chartRows} currencyCode={currencyCode} label="Bar chart comparing customer payments received with supplier payments made for each of the last six months"/><small className="ws-chart-caption">These are payments recorded in Invoice AI, not unpaid invoice balances. Reversed payments are excluded.</small></> : <div className="ws-chart-empty">Monthly cash-flow bars will appear here after you record a customer or supplier payment.</div>}
+    <div className="ws-dashboard-chart-heading"><div className="ws-dashboard-chart-title"><span className="ws-dashboard-chart-icon"><ChartNoAxesCombined/></span><div><h3>Cash Flow</h3><p>Money received and paid over the last {range} months.</p></div></div><div className="ws-dashboard-chart-controls"><label className="ws-dashboard-period"><CalendarDays/><select aria-label="Cash flow chart period" value={range} onChange={event=>setRange(Number(event.target.value))}><option value={3}>Last 3 Months</option><option value={6}>Last 6 Months</option></select><ChevronDown/></label><button className="ws-dashboard-chart-refresh" onClick={onRetry} disabled={loading} aria-label={loading ? "Updating chart" : "Refresh chart"} title={loading ? "Updating chart" : "Refresh chart"}><RefreshCw className={loading ? "ws-spin" : ""}/></button></div></div>
+    {error ? <div className="ws-report-warning" role="status"><span>{error}</span><button className="ws-button secondary" onClick={onRetry}>Try again</button></div> : loading && chartRows.length === 0 ? <div className="ws-report-inline-state">Loading payment activity…</div> : hasPayments ? <><div className="ws-chart-summary" aria-label="Six-month payment totals"><div className="received"><i><WalletCards/></i><span><small>Cash Received</small><b>{compactMoney(totals.received)}</b><em>Recorded in the last 6 months</em></span></div><div className="paid"><i><CreditCard/></i><span><small>Cash Paid</small><b>{compactMoney(totals.paid)}</b><em>Recorded in the last 6 months</em></span></div></div><div className="ws-chart-card ws-dashboard-plot"><div className="ws-chart-legend"><span><i className="income"/>Cash Received</span><span><i className="expenses"/>Cash Paid</span></div><GroupedMoneyChart rows={chartRows} currencyCode={currencyCode} label="Bar chart comparing customer payments received with supplier payments made for each of the last six months"/><small className="ws-chart-caption">Figures cover the last six months and may be rounded. Reversed payments are excluded.</small></div></> : <div className="ws-chart-empty">Monthly cash-flow bars will appear here after you record a customer or supplier payment.</div>}
   </section>;
 }
 
@@ -799,11 +802,45 @@ function DashboardOverview({ data, trend, trendLoading, trendError, onRetryTrend
   </div>;
 }
 
-function FinancialAssistantPage({ tools, question, setQuestion, answer, busy, onAsk }) {
+function AssistantFinancialVisualization({ result }) {
+  const summarySource = result?.sources?.find(source => source?.succeeded && source?.tool === "get_financial_summary");
+  const summary = summarySource?.data;
+  const period = summary?.period;
+  const months = Array.isArray(summary?.monthly) ? summary.monthly : [];
+  if (!period || !months.length) return null;
+
+  const currencyCode = summary.currencyCode || "NGN";
+  const chartRows = months.map(row => {
+    const match = /^(\d{4})-(\d{1,2})/.exec(String(row.month || ""));
+    const month = match
+      ? new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, 1)).toLocaleDateString("en", { month: "short", timeZone: "UTC" })
+      : String(row.month || "").slice(0, 8);
+    return { month, income: Number(row.income) || 0, expenses: Number(row.expenses) || 0 };
+  });
+  const canChart = chartRows.length > 1 && chartRows.some(row => row.income > 0 || row.expenses > 0);
+  const insights = [
+    ["Total income", period.income],
+    ["Total expenses", period.expenses],
+    ["Estimated profit", period.estimatedProfit],
+    ["Net cash flow", period.netCashFlow]
+  ];
+
+  return <section className="ws-assistant-insights" aria-label="Financial visualization from your records">
+    {canChart && <div className="ws-assistant-chart-card">
+      <div className="ws-assistant-visual-heading"><ChartNoAxesCombined/><h3>Income vs expenses</h3><span>{chartRows.length} months</span></div>
+      <div className="ws-assistant-chart-legend"><span><i className="income"/>Income</span><span><i className="expenses"/>Expenses</span></div>
+      <GroupedMoneyChart rows={chartRows.map(row=>({month:row.month,income:row.income,expenses:row.expenses}))} currencyCode={currencyCode} label={`Monthly income and expenses for ${chartRows.length} months`}/>
+      <small className="ws-assistant-chart-note">Monthly income and supplier expenses recorded in this workspace.</small>
+    </div>}
+    <aside className="ws-assistant-key-insights"><h3><Sparkles/> Key insights</h3>{insights.map(([label, value])=><div key={label}><CheckCircle2/><span>{label}<b>{formatMoney(value, currencyCode)}</b></span></div>)}<small>Profit is estimated from recorded income and supplier bills.</small></aside>
+  </section>;
+}
+
+function FinancialAssistantPage({ tools, question, setQuestion, result, busy, onAsk }) {
   const prompts = ["Which invoices are overdue?", "How much did I receive this month?", "Compare my income and expenses."];
   return <div className="ws-report-page ws-assistant-page">
     <section className="ws-report-hero assistant"><div><span>INVOICE AI ASSISTANT</span><h2>Ask a clear question about your finances</h2><p>Get answers based on the invoices, payments and supplier bills recorded in your workspace.</p></div><span className="ws-report-hero-icon"><Bot/></span></section>
-    <section className="ws-card ws-assistant-card"><div className="ws-assistant-intro"><span className="ws-assistant-icon"><Sparkles/></span><div><h3>What would you like to know?</h3><p>Choose a suggestion or type your own question in everyday language.</p></div></div><div className="ws-assistant-prompts">{prompts.map(prompt=><button type="button" key={prompt} onClick={()=>setQuestion(prompt)}>{prompt}<ArrowUpRight/></button>)}</div><form className="ws-ask ws-assistant-form" onSubmit={onAsk}><label htmlFor="financial-assistant-question">Your question</label><textarea id="financial-assistant-question" value={question} onChange={e=>setQuestion(e.target.value)} placeholder="For example: Which customers still owe me money?" required/><div className="ws-assistant-form-footer"><small>Answers use the latest data available in your workspace.</small><button className="ws-button primary" disabled={busy||!question.trim()}>{busy?<><RefreshCw className="ws-spin"/> Checking your records…</>:<><Bot/> Ask Invoice AI</>}</button></div></form>{answer&&<div className="ws-assistant-answer" role="status"><span><Sparkles/> ANSWER</span><p>{answer}</p></div>}</section>
+    <section className="ws-card ws-assistant-card"><div className="ws-assistant-intro"><span className="ws-assistant-icon"><Sparkles/></span><div><h3>What would you like to know?</h3><p>Choose a suggestion or type your own question in everyday language.</p></div></div><div className="ws-assistant-prompts">{prompts.map(prompt=><button type="button" key={prompt} onClick={()=>setQuestion(prompt)}>{prompt}<ArrowUpRight/></button>)}</div><form className="ws-ask ws-assistant-form" onSubmit={onAsk}><label htmlFor="financial-assistant-question">Your question</label><textarea id="financial-assistant-question" value={question} onChange={e=>setQuestion(e.target.value)} placeholder="For example: Which customers still owe me money?" required/><div className="ws-assistant-form-footer"><small>Answers use the latest data available in your workspace.</small><button className="ws-button primary" disabled={busy||!question.trim()}>{busy?<><RefreshCw className="ws-spin"/> Checking your records…</>:<><Bot/> Ask Invoice AI</>}</button></div></form>{result?.answer&&<div className="ws-assistant-answer" role="status"><span><Sparkles/> ANSWER</span><p>{result.answer}</p><AssistantFinancialVisualization result={result}/></div>}</section>
     {asList(tools).length>0&&<section className="ws-card ws-assistant-capabilities"><div><span>AVAILABLE DATA</span><h3>What the assistant can check</h3></div><div>{asList(tools).slice(0,6).map((tool,index)=><span key={tool.name||tool.id||index}><CheckCircle2/>{tool.name||tool.title||tool.description||"Workspace finance data"}</span>)}</div></section>}
   </div>;
 }
@@ -935,7 +972,7 @@ export default function Workspace({ path, navigate }) {
   const modalRef = useRef(null);
   useEffect(() => { api("/api/organization").then(org => { setAccountType(org.accountType === 0 ? "Freelancer" : org.accountType || "Organization"); setBaseCurrencyCode(org.baseCurrencyCode || "NGN"); if (org.isOnboardingComplete === false && path !== "/app/onboarding") navigate("/app/onboarding"); }).catch(() => setAccountType("Organization")); }, []);
   useEffect(() => { if (accountType === "Freelancer" && ["/app/team", "/app/invitations"].includes(path)) navigate("/app"); }, [accountType, path, navigate]);
-  const [data, setData] = useState(null), [error, setErrorState] = useState(""), [toast, setToast] = useState(null), [loading, setLoading] = useState(true), [showForm, setShowForm] = useState(false), [editingRecord, setEditingRecord] = useState(null), [question, setQuestion] = useState(""), [answer, setAnswer] = useState(""), [busy, setBusy] = useState(false), [query, setQuery] = useState(""), [invoiceId, setInvoiceId] = useState(""), [invoiceRecord, setInvoiceRecord] = useState(null), [invoicePayments,setInvoicePayments]=useState([]), [invoiceCreditNotes,setInvoiceCreditNotes]=useState([]), [billId,setBillId]=useState(""), [billRecord,setBillRecord]=useState(null), [billPayments,setBillPayments]=useState([]), [pdfUrl,setPdfUrl]=useState(""), [documentId, setDocumentId] = useState(""), [extraction, setExtraction] = useState(null), [batchId, setBatchId] = useState(()=>sessionStorage.getItem("invoice-ai-bank-batch") || ""), [batchDetails, setBatchDetails] = useState(null), [suggestions, setSuggestions] = useState({}), [notificationPrefs, setNotificationPrefs] = useState(()=>JSON.parse(localStorage.getItem(notificationPrefsKey)||"{\"overdue\":true,\"productUpdates\":false}"));
+  const [data, setData] = useState(null), [error, setErrorState] = useState(""), [toast, setToast] = useState(null), [loading, setLoading] = useState(true), [showForm, setShowForm] = useState(false), [editingRecord, setEditingRecord] = useState(null), [question, setQuestion] = useState(""), [answer, setAnswer] = useState(""), [assistantResult, setAssistantResult] = useState(null), [busy, setBusy] = useState(false), [query, setQuery] = useState(""), [invoiceId, setInvoiceId] = useState(""), [invoiceRecord, setInvoiceRecord] = useState(null), [invoicePayments,setInvoicePayments]=useState([]), [invoiceCreditNotes,setInvoiceCreditNotes]=useState([]), [billId,setBillId]=useState(""), [billRecord,setBillRecord]=useState(null), [billPayments,setBillPayments]=useState([]), [pdfUrl,setPdfUrl]=useState(""), [documentId, setDocumentId] = useState(""), [extraction, setExtraction] = useState(null), [batchId, setBatchId] = useState(()=>sessionStorage.getItem("invoice-ai-bank-batch") || ""), [batchDetails, setBatchDetails] = useState(null), [suggestions, setSuggestions] = useState({}), [notificationPrefs, setNotificationPrefs] = useState(()=>JSON.parse(localStorage.getItem(notificationPrefsKey)||"{\"overdue\":true,\"productUpdates\":false}"));
   const setError = useCallback(value => setErrorState(value ? friendlyErrorMessage(value) : ""), []);
   const startTour = useCallback(() => setTourOpen(true), []);
   const closeTour = useCallback((status = "completed") => {
@@ -1045,7 +1082,7 @@ export default function Workspace({ path, navigate }) {
   const filtered = useMemo(() => query ? list.filter(row => JSON.stringify(row).toLowerCase().includes(query.toLowerCase())) : data, [data, list, query]);
   const addKind = path === "/app/customers" ? "customer" : path === "/app/suppliers" ? "supplier" : path === "/app/supplier-invoices" ? "bill" : path === "/app/invitations" ? "invite" : path === "/app/invoice-new" || (path === "/app/invoice-detail" && editingRecord?.id) ? "invoice" : "organization";
   const canCreate = ["/app/customers", "/app/suppliers", "/app/supplier-invoices", "/app/invitations", "/app/invoice-new", "/app/organization", "/app/organization-setup"].includes(path);
-  const doAsk = async e => { e.preventDefault(); setBusy(true); setAnswer(""); try { const r = await api("/api/assistant/ask", { method: "POST", body: { question } }); setAnswer(r.answer || JSON.stringify(r)); } catch (e2) { setAnswer(e2.message); } finally { setBusy(false); } };
+  const doAsk = async e => { e.preventDefault(); setBusy(true); setAssistantResult(null); try { const r = await api("/api/assistant/ask", { method: "POST", body: { question } }); setAssistantResult(r); } catch (e2) { setAssistantResult({ answer: e2.message, sources: [] }); } finally { setBusy(false); } };
   const doUpload = async e => { e.preventDefault(); const file = e.currentTarget.elements.file.files[0]; if (!file) return; const form = new FormData(); form.append("file", file); setBusy(true); try { const doc = await api("/api/supplier-documents", { method: "POST", body: form }); setDocumentId(doc.id); setExtraction(await api(`/api/supplier-documents/${doc.id}/extract`,{method:"POST"})); navigate("/app/extraction-review"); } catch (e2) { setError(e2.message); } finally { setBusy(false); } };
   const exportData = async format => { setBusy(true); setError(""); try { const kind = path === "/app/invoices" ? "invoices" : "customers"; const blob = await apiBlob(`/api/${kind}/export?format=${format}`); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = `${kind}-${new Date().toISOString().slice(0,10)}.${format}`; document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); } catch (e) { setError(e.message); } finally { setBusy(false); } };
   const downloadFinancialRecords = async () => { setBusy(true); setError(""); try { const range = periodBounds(recordsPeriod); const blob = await apiBlob(`/api/reports/financial-records/pdf?from=${range.from}&to=${range.to}`); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = `financial-records-${range.from}-${range.to}.pdf`; document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); } catch (e) { setError(e.message); } finally { setBusy(false); } };
@@ -1076,7 +1113,7 @@ export default function Workspace({ path, navigate }) {
           </>;
         })()}
       </section>}
-      {path === "/app/assistant" && <FinancialAssistantPage tools={data} question={question} setQuestion={setQuestion} answer={answer} busy={busy} onAsk={doAsk}/>}
+      {path === "/app/assistant" && <FinancialAssistantPage tools={data} question={question} setQuestion={setQuestion} result={assistantResult} busy={busy} onAsk={doAsk}/>}
       {path === "/app/upload-supplier-invoice" ? <SupplierInvoiceUpload busy={busy} onUpload={doUpload}/> : null}
       {path === "/app/bank-import" && <section className="ws-money-page">
         <div className="ws-card ws-money-hero compact"><div className="ws-money-hero-icon"><Upload/></div><div className="ws-money-hero-copy"><span className="ws-money-eyebrow">BANK STATEMENTS</span><h2>Bring your bank activity into Invoice AI</h2><p>Upload a statement file and we’ll help match its deposits and withdrawals to the payments you recorded.</p></div></div>
