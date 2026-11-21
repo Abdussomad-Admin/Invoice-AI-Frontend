@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDownLeft, ArrowLeft, ArrowRight, ArrowUpRight, Bell, Bot, Building2, CalendarDays, ChartNoAxesCombined, CheckCircle2, ChevronDown, CircleDollarSign, CircleHelp, CreditCard, FileText, Home, Landmark, LayoutDashboard, LogOut, Menu, Plus, RefreshCw, Repeat, Search, Settings, Share2, Shield, Sparkles, Upload, Users, WalletCards, X } from "lucide-react";
+import { ArrowDownLeft, ArrowLeft, ArrowRight, ArrowUpRight, Bell, Bot, Building2, CalendarDays, ChartNoAxesCombined, CheckCircle2, ChevronDown, CircleDollarSign, CircleHelp, Clock3, CreditCard, FileText, Home, Landmark, LayoutDashboard, LogOut, Menu, Plus, RefreshCw, Repeat, Search, Settings, Share2, Shield, Sparkles, Upload, Users, WalletCards, X, Zap } from "lucide-react";
 import { api, apiBlob, clearSession, friendlyErrorMessage } from "./api";
 import { buildCreditReadiness } from "./creditReadiness";
 import Toast from "./Toast";
@@ -653,6 +653,35 @@ function MonthlyCashFlowChart({ rows, currencyCode, loading, error, onRetry }) {
   </section>;
 }
 
+function DashboardPanels({ records, recordsLoading, periodIncome, currencyCode, navigate, setQuestion }) {
+  const total = records?.counts?.total;
+  const paid = records?.counts?.paid;
+  const pending = records?.counts?.pending;
+  return <section className="ws-dashboard-panels">
+    <article className="ws-dashboard-panel ws-dashboard-key-metrics">
+      <header><span className="ws-dashboard-panel-title"><i><LayoutDashboard/></i><b>Key Metrics</b></span><button type="button" onClick={()=>navigate("/app/reports")}>View details <ArrowRight/></button></header>
+      <div className="ws-key-metric-grid">
+        {[["Total invoices",total,FileText,"purple"],["Paid invoices",paid,CheckCircle2,"green"],["Pending invoices",pending,Clock3,"amber"],["Total revenue",formatMoney(periodIncome,currencyCode),ChartNoAxesCombined,"blue"]].map(([label,value,Icon,tone])=><div className={`ws-key-metric ${tone}`} key={label}><i><Icon/></i><span><small>{label}</small><b>{recordsLoading&&value==null?"…":value??"—"}</b>{label==="Total revenue"&&<em>Current reporting period</em>}</span></div>)}
+      </div>
+    </article>
+    <article className="ws-dashboard-panel ws-dashboard-activity">
+      <header><span className="ws-dashboard-panel-title"><i><Zap/></i><b>Recent Activity</b></span><button type="button" onClick={()=>navigate("/app/payments")}>View all <ArrowRight/></button></header>
+      {recordsLoading&&!records?.activity ? <div className="ws-dashboard-panel-state">Loading your recent activity…</div> : records?.activity?.length ? <div className="ws-activity-list">{records.activity.slice(0,3).map((item,index)=><div className={`ws-activity-row ${item.kind}`} key={`${item.kind}-${item.id||item.title}-${index}`}><i>{item.kind==="received"?<ArrowDownLeft/>:item.kind==="paid"?<ArrowUpRight/>:<FileText/>}</i><span><b>{item.title}</b><small>{item.detail} · {item.date}</small></span><strong>{item.amount!=null?formatMoney(item.amount,item.currencyCode||currencyCode):"—"}</strong></div>)}</div> : <div className="ws-dashboard-panel-state">No recent activity yet. Payments and issued invoices will appear here.</div>}
+    </article>
+    <DashboardAiInsights navigate={navigate} setQuestion={setQuestion}/>
+  </section>;
+}
+
+function DashboardAiInsights({ navigate, setQuestion }) {
+  const [insight,setInsight]=useState("");
+  const [loading,setLoading]=useState(false);
+  const [error,setError]=useState("");
+  const prompt="Review my income, expenses and cash flow over the last six months. Share one short, practical insight using only the financial records in my workspace. If there is not enough data, say so.";
+  const generate=async()=>{setLoading(true);setError("");try{const result=await api("/api/assistant/ask",{method:"POST",body:{question:prompt}});setInsight(result?.answer||"I couldn’t find a useful pattern in the recorded data yet.")}catch(e){setError(e.message||"The insight could not be generated right now.")}finally{setLoading(false)}};
+  const askMore=()=>{setQuestion(prompt);navigate("/app/assistant")};
+  return <article className="ws-dashboard-panel ws-dashboard-ai-insight"><header><span className="ws-dashboard-panel-title"><i><Sparkles/></i><b>AI Insights</b></span><span className="ws-insight-new">New</span></header><div className="ws-insight-body"><span className="ws-insight-bulb"><Sparkles/></span><div>{error?<p className="ws-insight-error">{error}</p>:<p>{insight||"Ask Invoice AI for a useful observation about your recent income, expenses and cash flow."}</p>}<small>Answers use the latest data available in your workspace.</small></div></div><button className="ws-insight-action" type="button" onClick={insight?askMore:generate} disabled={loading}>{loading?<><RefreshCw className="ws-spin"/> Reviewing your records…</>:<><Bot/> Ask Invoice AI</>}</button></article>;
+}
+
 function ForecastWeeklyChart({ forecast }) {
   const start = new Date(`${forecast.asOf}T00:00:00`);
   const rows = Array.from({ length: 5 }, (_, index) => {
@@ -744,7 +773,7 @@ function CreditReadinessPage({ data, loading, error, onRetry, navigate }) {
   </div>;
 }
 
-function DashboardOverview({ data, trend, trendLoading, trendError, onRetryTrend, navigate, refresh, onStartTour, onPaymentSetup }) {
+function DashboardOverview({ data, trend, trendLoading, trendError, records, recordsLoading, onRetryTrend, navigate, refresh, onStartTour, onPaymentSetup, setQuestion }) {
   const summary = data?.data ?? data?.result ?? data ?? {};
   const read = (object, key) => object?.[key] ?? object?.[`${key[0].toUpperCase()}${key.slice(1)}`];
   const period = read(summary, "period") || summary;
@@ -757,7 +786,9 @@ function DashboardOverview({ data, trend, trendLoading, trendError, onRetryTrend
     return <section className="ws-card ws-dashboard-unavailable"><span className="ws-task-icon"><ChartNoAxesCombined/></span><h2>We couldn’t read your financial summary</h2><p className="ws-muted">Try again in a moment. Your invoices and other workspace pages are still available from the menu.</p><button className="ws-button primary" onClick={refresh}><RefreshCw/> Try again</button></section>;
   }
   const values = [periodValues.income, periodValues.expenses, periodValues.estimatedProfit, periodValues.cashReceived].map(value => Number(value) || 0);
-  const isNew = Number(periodValues.invoiceCount) === 0 && values.every(value => value === 0);
+  const isNew = records?.counts?.total != null
+    ? Number(records.counts.total) === 0
+    : Number(periodValues.invoiceCount) === 0 && values.every(value => value === 0);
   const dateLabel = periodValues.from && periodValues.to
     ? `${new Date(`${periodValues.from}T00:00:00`).toLocaleDateString("en-NG", { day: "numeric", month: "short" })} – ${new Date(`${periodValues.to}T00:00:00`).toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric" })}`
     : "Current financial period";
@@ -775,7 +806,7 @@ function DashboardOverview({ data, trend, trendLoading, trendError, onRetryTrend
   ];
 
   return <div className="ws-dashboard">
-    <section className={`ws-dashboard-hero${isNew ? " is-new" : ""}`}>
+    {isNew && <section className="ws-dashboard-hero is-new">
       <div className="ws-dashboard-hero-copy">
         <span className="ws-dashboard-kicker"><Sparkles size={14}/> YOUR FINANCES</span>
         <h2>{isNew ? "Your workspace is ready" : "Your finances, at a glance"}</h2>
@@ -790,15 +821,16 @@ function DashboardOverview({ data, trend, trendLoading, trendError, onRetryTrend
         </div>
       </div>
       <div className="ws-dashboard-art" aria-hidden="true"><div className="ws-art-orbit orbit-one"/><div className="ws-art-orbit orbit-two"/><span className="ws-art-icon"><ChartNoAxesCombined/></span><span className="ws-art-chip"><CheckCircle2/> Clear financial picture</span></div>
-    </section>
+    </section>}
 
-    <div className="ws-section-heading"><div><h2>Financial overview</h2><p>Key figures for your current reporting period</p></div><span className="ws-period-chip"><CalendarDays/>{dateLabel}</span></div>
-    <section className="ws-metrics">{metrics.map(([label,value,Icon,tone,description])=><article className={`ws-metric ${tone}`} key={label}><div className="ws-metric-top"><span>{label}</span><i><Icon/></i></div><b>{formatMoney(value, read(summary, "currencyCode") || "NGN")}</b><small>{description}</small></article>)}</section>
+    {isNew && <><div className="ws-section-heading"><div><h2>Financial overview</h2><p>Key figures for your current reporting period</p></div><span className="ws-period-chip"><CalendarDays/>{dateLabel}</span></div>
+    <section className="ws-metrics">{metrics.map(([label,value,Icon,tone,description])=><article className={`ws-metric ${tone}`} key={label}><div className="ws-metric-top"><span>{label}</span><i><Icon/></i></div><b>{formatMoney(value, read(summary, "currencyCode") || "NGN")}</b><small>{description}</small></article>)}</section></>}
 
     <MonthlyCashFlowChart rows={trend?.monthly} currencyCode={trend?.currencyCode || read(summary,"currencyCode") || "NGN"} loading={trendLoading} error={trendError} onRetry={onRetryTrend}/>
 
-    <div className="ws-section-heading ws-actions-heading"><div><h2>{isNew ? "Get started" : "Quick actions"}</h2><p>{isNew ? "A few simple steps will make this dashboard more useful." : "Common tasks, ready when you are."}</p></div></div>
-    <section className="ws-action-grid">{actions.map(([href,title,description,Icon],index)=><button className={`ws-action-card action-${index+1}`} key={href} onClick={() => navigate(href)}><span><Icon/></span><span className="ws-action-copy"><b>{title}</b><small>{description}</small></span><ArrowUpRight className="ws-action-arrow"/></button>)}</section>
+    {!isNew && <DashboardPanels records={records} recordsLoading={recordsLoading} periodIncome={periodValues.income} currencyCode={read(summary,"currencyCode") || "NGN"} navigate={navigate} setQuestion={setQuestion}/>}
+    {isNew && <><div className="ws-section-heading ws-actions-heading"><div><h2>Get started</h2><p>A few simple steps will make this dashboard more useful.</p></div></div>
+    <section className="ws-action-grid">{actions.map(([href,title,description,Icon],index)=><button className={`ws-action-card action-${index+1}`} key={href} onClick={() => navigate(href)}><span><Icon/></span><span className="ws-action-copy"><b>{title}</b><small>{description}</small></span><ArrowUpRight className="ws-action-arrow"/></button>)}</section></>}
   </div>;
 }
 
@@ -969,6 +1001,8 @@ export default function Workspace({ path, navigate }) {
   const [dashboardTrend, setDashboardTrend] = useState(null);
   const [dashboardTrendLoading, setDashboardTrendLoading] = useState(false);
   const [dashboardTrendError, setDashboardTrendError] = useState("");
+  const [dashboardRecords, setDashboardRecords] = useState(null);
+  const [dashboardRecordsLoading, setDashboardRecordsLoading] = useState(false);
   const modalRef = useRef(null);
   useEffect(() => { api("/api/organization").then(org => { setAccountType(org.accountType === 0 ? "Freelancer" : org.accountType || "Organization"); setBaseCurrencyCode(org.baseCurrencyCode || "NGN"); if (org.isOnboardingComplete === false && path !== "/app/onboarding") navigate("/app/onboarding"); }).catch(() => setAccountType("Organization")); }, []);
   useEffect(() => { if (accountType === "Freelancer" && ["/app/team", "/app/invitations"].includes(path)) navigate("/app"); }, [accountType, path, navigate]);
@@ -1026,6 +1060,37 @@ export default function Workspace({ path, navigate }) {
       setDashboardTrendError(e.message || "Payment activity could not be loaded.");
     } finally { setDashboardTrendLoading(false); }
   }, [path]);
+  const loadDashboardRecords = useCallback(async () => {
+    if (path !== "/app") return;
+    setDashboardRecordsLoading(true);
+    const requests = await Promise.allSettled([
+      api("/api/invoices?page=1&pageSize=1"),
+      api("/api/invoices?status=Paid&page=1&pageSize=1"),
+      api("/api/invoices?status=Issued&page=1&pageSize=1"),
+      api("/api/invoices?status=PartiallyPaid&page=1&pageSize=1"),
+      api("/api/invoices?page=1&pageSize=8"),
+      api("/api/payments?includeReversed=false&page=1&pageSize=8"),
+      api("/api/supplier-payments?includeReversed=false&page=1&pageSize=8")
+    ]);
+    const value = index => requests[index].status === "fulfilled" ? requests[index].value : null;
+    const totalOf = response => response == null ? null : Number(response.total ?? response.Total ?? asList(response).length);
+    const invoiceRows = asList(value(4));
+    const salesPayments = asList(value(5));
+    const supplierPayments = asList(value(6));
+    const read = (object, key) => object?.[key] ?? object?.[`${key[0].toUpperCase()}${key.slice(1)}`];
+    const dateText = raw => {
+      if (!raw) return "Date unavailable";
+      const date = new Date(raw);
+      return Number.isNaN(date.getTime()) ? "Date unavailable" : date.toLocaleDateString("en-NG", { day: "numeric", month: "short" });
+    };
+    const activity = [
+      ...salesPayments.filter(item => !read(item,"isReversed")).map(item => ({ kind:"received", id:read(item,"id"), title:`Payment received${read(item,"customerName") ? ` from ${read(item,"customerName")}` : ""}`, detail:read(item,"invoiceNumber") ? `Invoice ${read(item,"invoiceNumber")}` : (read(item,"method") || "Customer payment"), date:dateText(read(item,"paidOn")), sortAt:Date.parse(read(item,"paidOn")), amount:read(item,"amount"), currencyCode:read(item,"currencyCode") })),
+      ...supplierPayments.filter(item => !read(item,"isReversed")).map(item => ({ kind:"paid", id:read(item,"id"), title:`Supplier payment${read(item,"supplierName") ? ` to ${read(item,"supplierName")}` : ""}`, detail:read(item,"billNumber") ? `Bill ${read(item,"billNumber")}` : "Supplier bill", date:dateText(read(item,"paidOn")), sortAt:Date.parse(read(item,"paidOn")), amount:read(item,"amount"), currencyCode:read(item,"currencyCode") })),
+      ...invoiceRows.filter(item => ["Issued","PartiallyPaid","Paid"].includes(read(item,"status"))).map(item => ({ kind:"invoice", id:read(item,"id"), title:`Invoice ${read(item,"number") || "issued"}`, detail:read(item,"customerName") ? `For ${read(item,"customerName")}` : "Sales invoice", date:dateText(read(item,"issueDate")), sortAt:Date.parse(read(item,"issueDate")), amount:null, currencyCode:read(item,"currencyCode") }))
+    ].sort((a,b) => (Number.isNaN(b.sortAt) ? 0 : b.sortAt) - (Number.isNaN(a.sortAt) ? 0 : a.sortAt));
+    setDashboardRecords({ counts:{ total:totalOf(value(0)), paid:totalOf(value(1)), pending:[value(2),value(3)].some(item=>item==null)?null:(totalOf(value(2))||0)+(totalOf(value(3))||0) }, activity });
+    setDashboardRecordsLoading(false);
+  }, [path]);
   useEffect(() => { setShowForm(false); setEditingRecord(null); refresh(); }, [path, refresh]);
   useEffect(() => {
     if (path !== "/app/invoice-detail" || !invoiceRecord?.id) return;
@@ -1041,6 +1106,7 @@ export default function Workspace({ path, navigate }) {
     return () => { active = false; };
   }, [invoiceRecord?.id, path, setError]);
   useEffect(() => { loadDashboardTrend(); }, [loadDashboardTrend]);
+  useEffect(() => { loadDashboardRecords(); }, [loadDashboardRecords]);
   useEffect(() => {
     if (!showForm) return undefined;
     const previousFocus = document.activeElement;
@@ -1186,7 +1252,7 @@ export default function Workspace({ path, navigate }) {
       {path === "/app/billing/return" && <SubscriptionPaymentReturn navigate={navigate}/>}
       {path === "/app/billing-history" && data && <BillingHistoryPanel data={data} onRefresh={refresh} onError={setError}/>}
       {path === "/app/payment-account" && data && <PaymentAccountPanel data={data} setData={setData} onError={setError} busy={busy} setBusy={setBusy}/>}
-      {path === "/app" && data && <DashboardOverview data={data} trend={dashboardTrend} trendLoading={dashboardTrendLoading} trendError={dashboardTrendError} onRetryTrend={loadDashboardTrend} navigate={navigate} refresh={refresh} onStartTour={startTour} onPaymentSetup={()=>{closeTour("completed");navigate("/app/payment-account")}}/>}
+      {path === "/app" && data && <DashboardOverview data={data} trend={dashboardTrend} trendLoading={dashboardTrendLoading} trendError={dashboardTrendError} records={dashboardRecords} recordsLoading={dashboardRecordsLoading} onRetryTrend={loadDashboardTrend} navigate={navigate} refresh={refresh} onStartTour={startTour} onPaymentSetup={()=>{closeTour("completed");navigate("/app/payment-account")}} setQuestion={setQuestion}/>}
       {path === "/app/onboarding" && data && <section className="ws-card ws-onboarding"><div className="ws-onboarding-intro"><span className="ws-task-icon"><Building2/></span><p className="ws-eyebrow">{accountType === "Freelancer" ? "FREELANCER SETUP" : "ORGANIZATION SETUP"}</p><h2>Set up your workspace</h2><p className="ws-muted">Your account is ready. Add the contact details you want printed on your invoices, then choose the reminders you’d like to see.</p></div><RecordForm kind="organization" initial={data} onCancel={()=>{}} onDone={async()=>{try{await api("/api/organization/onboarding-complete",{method:"POST"});navigate("/app");}catch(e){setError(e.message);}}}/><div className="ws-onboarding-preferences"><h3>Workspace preferences</h3><p className="ws-muted">You can change these any time in Notification settings.</p>{[["overdue","Show overdue invoice reminders"],["productUpdates","Show product updates"]].map(([key,label])=><label className="ws-pref" key={key}><span><b>{label}</b><small>{key==="overdue"?"Keep unpaid invoices past their due date visible in Notifications.":"See announcements and new Invoice AI features."}</small></span><input type="checkbox" checked={!!notificationPrefs[key]} onChange={e=>{const next={...notificationPrefs,[key]:e.target.checked};setNotificationPrefs(next);localStorage.setItem(notificationPrefsKey,JSON.stringify(next));}}/></label>)}</div></section>}
       {path === "/app" && !loading && !data && <section className="ws-card ws-dashboard-unavailable"><span className="ws-task-icon"><ChartNoAxesCombined/></span><h2>Your financial summary isn’t available right now</h2><p className="ws-muted">Try loading it again. Your invoices and other workspace pages are still available from the menu.</p><button className="ws-button primary" onClick={refresh}><RefreshCw/> Try again</button></section>}
       {path === "/app/financial-health" && <FinancialHealthPage data={data} extras={reportExtras} forecast={forecast} forecastLoading={forecastLoading} forecastError={forecastError} onRetryForecast={loadForecast} loading={loading} error={error} extrasLoading={reportExtrasLoading} extrasError={reportExtrasError} periodChoice={healthPeriod} onPeriodChange={setHealthPeriod} onRetry={refresh} onRetryExtras={()=>loadReportExtras(data?.period?.from,data?.period?.to)} navigate={navigate}/>}
