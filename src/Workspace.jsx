@@ -5,6 +5,7 @@ import { buildCreditReadiness } from "./creditReadiness";
 import Toast from "./Toast";
 import RecurringInvoices from "./RecurringInvoices";
 import WorkspaceTour, { TOUR_KEY } from "./WorkspaceTour";
+import { askOnDevice, firebaseOnDeviceConfigured, preloadOnDeviceSdk } from "./firebaseOnDeviceAssistant";
 import "./workspace.css";
 import "./dashboard-overrides.css";
 import "./modal.css";
@@ -868,11 +869,17 @@ function AssistantFinancialVisualization({ result }) {
   </section>;
 }
 
-function FinancialAssistantPage({ tools, question, setQuestion, result, busy, onAsk }) {
+function FinancialAssistantPage({ tools, question, setQuestion, result, busy, onAsk, deviceBusy, deviceProgress, onAskOnDevice, deviceConfigured }) {
+  const [deviceSdkReady, setDeviceSdkReady] = useState(false);
+  useEffect(() => {
+    let active = true;
+    if (deviceConfigured) preloadOnDeviceSdk().then(() => { if (active) setDeviceSdkReady(true); }).catch(() => {});
+    return () => { active = false; };
+  }, [deviceConfigured]);
   const prompts = ["Which invoices are overdue?", "How much did I receive this month?", "Compare my income and expenses."];
   return <div className="ws-report-page ws-assistant-page">
     <section className="ws-report-hero assistant"><div><span>INVOICE AI ASSISTANT</span><h2>Ask a clear question about your finances</h2><p>Get answers based on the invoices, payments and supplier bills recorded in your workspace.</p></div><span className="ws-report-hero-icon"><Bot/></span></section>
-    <section className="ws-card ws-assistant-card"><div className="ws-assistant-intro"><span className="ws-assistant-icon"><Sparkles/></span><div><h3>What would you like to know?</h3><p>Choose a suggestion or type your own question in everyday language.</p></div></div><div className="ws-assistant-prompts">{prompts.map(prompt=><button type="button" key={prompt} onClick={()=>setQuestion(prompt)}>{prompt}<ArrowUpRight/></button>)}</div><form className="ws-ask ws-assistant-form" onSubmit={onAsk}><label htmlFor="financial-assistant-question">Your question</label><textarea id="financial-assistant-question" value={question} onChange={e=>setQuestion(e.target.value)} placeholder="For example: Which customers still owe me money?" required/><div className="ws-assistant-form-footer"><small>Answers use the latest data available in your workspace.</small><button className="ws-button primary" disabled={busy||!question.trim()}>{busy?<><RefreshCw className="ws-spin"/> Checking your records…</>:<><Bot/> Ask Invoice AI</>}</button></div></form>{result?.answer&&<div className="ws-assistant-answer" role="status"><span><Sparkles/> ANSWER</span><p>{result.answer}</p><AssistantFinancialVisualization result={result}/></div>}</section>
+    <section className="ws-card ws-assistant-card"><div className="ws-assistant-intro"><span className="ws-assistant-icon"><Sparkles/></span><div><h3>What would you like to know?</h3><p>Choose a suggestion or type your own question in everyday language.</p></div></div><div className="ws-assistant-prompts">{prompts.map(prompt=><button type="button" key={prompt} onClick={()=>setQuestion(prompt)}>{prompt}<ArrowUpRight/></button>)}</div><form className="ws-ask ws-assistant-form" onSubmit={onAsk}><label htmlFor="financial-assistant-question">Your question</label><textarea id="financial-assistant-question" value={question} onChange={e=>setQuestion(e.target.value)} placeholder="For example: Which customers still owe me money?" required/><div className="ws-assistant-form-footer"><small>Workspace answers use your saved financial records.</small><div className="ws-assistant-submit-actions"><button className="ws-button primary" disabled={busy||deviceBusy||!question.trim()}>{busy?<><RefreshCw className="ws-spin"/> Checking your records…</>:<><Bot/> Ask Invoice AI</>}</button><button className="ws-button secondary ws-on-device-button" type="button" disabled={busy||deviceBusy||!question.trim()||!deviceConfigured||!deviceSdkReady} onClick={onAskOnDevice} title={deviceConfigured ? "Generate a general answer on this device" : "Firebase web app and production App Check settings are not configured"}>{deviceBusy?<><RefreshCw className="ws-spin"/> Preparing locally{deviceProgress>0?` · ${deviceProgress}%`:"…"}</>:<><Shield/> On-device help</>}</button></div></div><small className="ws-on-device-hint">{deviceConfigured ? !deviceSdkReady ? "Preparing the on-device support code…" : "General help runs on this device and cannot access invoices, payments or other saved records. First setup needs internet and may download a large model. After it is ready, you can ask again offline while this page remains open. Requires desktop Chrome 139+ with Prompt API enabled." : "On-device help is not set up for this hosted Invoice AI app yet. Its Firebase and App Check settings are configured once for all users; users do not need individual Firebase accounts or keys."}</small></form>{result?.answer&&<div className="ws-assistant-answer" role="status"><span><Sparkles/> {result.mode==="on-device"?"ON-DEVICE ANSWER":"ANSWER"}</span><p>{result.answer}</p>{result.notice&&<small className="ws-assistant-answer-note">{result.notice}</small>}<AssistantFinancialVisualization result={result}/></div>}</section>
     {asList(tools).length>0&&<section className="ws-card ws-assistant-capabilities"><div><span>AVAILABLE DATA</span><h3>What the assistant can check</h3></div><div>{asList(tools).slice(0,6).map((tool,index)=><span key={tool.name||tool.id||index}><CheckCircle2/>{tool.name||tool.title||tool.description||"Workspace finance data"}</span>)}</div></section>}
   </div>;
 }
@@ -1003,6 +1010,8 @@ export default function Workspace({ path, navigate }) {
   const [dashboardTrendError, setDashboardTrendError] = useState("");
   const [dashboardRecords, setDashboardRecords] = useState(null);
   const [dashboardRecordsLoading, setDashboardRecordsLoading] = useState(false);
+  const [deviceAssistantBusy, setDeviceAssistantBusy] = useState(false);
+  const [deviceAssistantProgress, setDeviceAssistantProgress] = useState(0);
   const modalRef = useRef(null);
   useEffect(() => { api("/api/organization").then(org => { setAccountType(org.accountType === 0 ? "Freelancer" : org.accountType || "Organization"); setBaseCurrencyCode(org.baseCurrencyCode || "NGN"); if (org.isOnboardingComplete === false && path !== "/app/onboarding") navigate("/app/onboarding"); }).catch(() => setAccountType("Organization")); }, []);
   useEffect(() => { if (accountType === "Freelancer" && ["/app/team", "/app/invitations"].includes(path)) navigate("/app"); }, [accountType, path, navigate]);
@@ -1149,6 +1158,24 @@ export default function Workspace({ path, navigate }) {
   const addKind = path === "/app/customers" ? "customer" : path === "/app/suppliers" ? "supplier" : path === "/app/supplier-invoices" ? "bill" : path === "/app/invitations" ? "invite" : path === "/app/invoice-new" || (path === "/app/invoice-detail" && editingRecord?.id) ? "invoice" : "organization";
   const canCreate = ["/app/customers", "/app/suppliers", "/app/supplier-invoices", "/app/invitations", "/app/invoice-new", "/app/organization", "/app/organization-setup"].includes(path);
   const doAsk = async e => { e.preventDefault(); setBusy(true); setAssistantResult(null); try { const r = await api("/api/assistant/ask", { method: "POST", body: { question } }); setAssistantResult(r); } catch (e2) { setAssistantResult({ answer: e2.message, sources: [] }); } finally { setBusy(false); } };
+  const doAskOnDevice = async () => {
+    if (!question.trim()) return;
+    setDeviceAssistantBusy(true); setDeviceAssistantProgress(0); setAssistantResult(null);
+    try {
+      const answer = await askOnDevice(question, setDeviceAssistantProgress);
+      setAssistantResult({ answer, sources: [], mode: "on-device", notice: "Generated locally on this device. This answer cannot see your saved financial records." });
+    } catch (e) {
+      const message = String(e?.message || "");
+      const friendly = /firebase ai logic is not configured|app check enabled|site key|under 500 characters|type a question|use local help offline|secure connection|still preparing/i.test(message)
+        ? message
+        : /languagemodel|prompt api|not supported|on-device model.*available|not available.*device/i.test(message)
+          ? "On-device AI needs desktop Chrome 139 or newer with Chrome’s Prompt API and model enabled. You can still use Ask Invoice AI for workspace questions."
+          : !navigator.onLine
+            ? "The local model is not ready in this page yet. Connect once, prepare it, and then use on-device help offline while this page stays open."
+            : "The on-device model could not start. Check that Chrome’s on-device AI model is available, then try again.";
+      setAssistantResult({ answer: friendly, sources: [], mode: "on-device", notice: "Your question was not sent to Invoice AI’s financial-record tools." });
+    } finally { setDeviceAssistantBusy(false); }
+  };
   const doUpload = async e => { e.preventDefault(); const file = e.currentTarget.elements.file.files[0]; if (!file) return; const form = new FormData(); form.append("file", file); setBusy(true); try { const doc = await api("/api/supplier-documents", { method: "POST", body: form }); setDocumentId(doc.id); setExtraction(await api(`/api/supplier-documents/${doc.id}/extract`,{method:"POST"})); navigate("/app/extraction-review"); } catch (e2) { setError(e2.message); } finally { setBusy(false); } };
   const exportData = async format => { setBusy(true); setError(""); try { const kind = path === "/app/invoices" ? "invoices" : "customers"; const blob = await apiBlob(`/api/${kind}/export?format=${format}`); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = `${kind}-${new Date().toISOString().slice(0,10)}.${format}`; document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); } catch (e) { setError(e.message); } finally { setBusy(false); } };
   const downloadFinancialRecords = async () => { setBusy(true); setError(""); try { const range = periodBounds(recordsPeriod); const blob = await apiBlob(`/api/reports/financial-records/pdf?from=${range.from}&to=${range.to}`); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = `financial-records-${range.from}-${range.to}.pdf`; document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); } catch (e) { setError(e.message); } finally { setBusy(false); } };
@@ -1179,7 +1206,7 @@ export default function Workspace({ path, navigate }) {
           </>;
         })()}
       </section>}
-      {path === "/app/assistant" && <FinancialAssistantPage tools={data} question={question} setQuestion={setQuestion} result={assistantResult} busy={busy} onAsk={doAsk}/>}
+      {path === "/app/assistant" && <FinancialAssistantPage tools={data} question={question} setQuestion={setQuestion} result={assistantResult} busy={busy} onAsk={doAsk} deviceBusy={deviceAssistantBusy} deviceProgress={deviceAssistantProgress} onAskOnDevice={doAskOnDevice} deviceConfigured={firebaseOnDeviceConfigured()}/>}
       {path === "/app/upload-supplier-invoice" ? <SupplierInvoiceUpload busy={busy} onUpload={doUpload}/> : null}
       {path === "/app/bank-import" && <section className="ws-money-page">
         <div className="ws-card ws-money-hero compact"><div className="ws-money-hero-icon"><Upload/></div><div className="ws-money-hero-copy"><span className="ws-money-eyebrow">BANK STATEMENTS</span><h2>Bring your bank activity into Invoice AI</h2><p>Upload a statement file and we’ll help match its deposits and withdrawals to the payments you recorded.</p></div></div>

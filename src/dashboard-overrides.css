@@ -590,3 +590,13 @@
 .ws-invoice-delivery-note{margin:0 0 12px;padding:11px 13px;border:1px solid #e7dcff;border-radius:10px;background:#f8f4ff;color:#514079;font-size:12px;line-height:1.55}.workspace .ws-table-invoice-lines,.workspace .ws-table-invoice-payments{overflow-x:auto;border:1px solid #e7e1f1;border-radius:13px;background:#fff;box-shadow:0 4px 14px #24164a08}.workspace .ws-table-invoice-lines table{min-width:760px}.workspace .ws-table-invoice-lines th,.workspace .ws-table-invoice-payments th{padding:13px 15px;background:#f7f4fc;color:#706687;font-size:10px;letter-spacing:.055em;text-transform:uppercase}.workspace .ws-table-invoice-lines td,.workspace .ws-table-invoice-payments td{padding:14px 15px;border-top:1px solid #eeeaf5;color:#393252;font-size:12px}.workspace .ws-table-invoice-lines tbody tr:hover,.workspace .ws-table-invoice-payments tbody tr:hover{background:#fbf9ff}.workspace .ws-table-invoice-lines td:nth-child(n+3){text-align:right;font-variant-numeric:tabular-nums}.workspace .ws-table-invoice-payments table{min-width:620px}.workspace .ws-table-invoice-payments td:nth-child(4){font-weight:700;color:#2d205a;font-variant-numeric:tabular-nums}
 
 .ws-invoice-reminder-info{margin:0 0 12px;padding:12px 14px;border:1px solid #dcd2f2;border-radius:10px;background:linear-gradient(110deg,#faf8ff,#f4efff);color:#574b77;font-size:12px;line-height:1.6}
+
+.ws-assistant-submit-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:9px}
+.ws-assistant-submit-actions .ws-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:43px}
+.ws-assistant-submit-actions .ws-button svg{width:16px;height:16px}
+.ws-on-device-button{border-color:#d9cff0!important;background:#faf8ff!important;color:#5935a7!important}
+.ws-on-device-button:hover:not(:disabled){border-color:#a98de5!important;background:#f1eaff!important}
+.ws-on-device-button:disabled{opacity:.58;cursor:not-allowed}
+.ws-on-device-hint{display:block;margin:10px 0 0;color:#746b86;font-size:11px;line-height:1.6}
+.ws-assistant-answer-note{display:block;margin-top:8px;padding:9px 11px;border-left:3px solid #7650d7;border-radius:0 8px 8px 0;background:#f7f3ff;color:#64567f;font-size:11px;line-height:1.5}
+@media(max-width:640px){.ws-assistant-submit-actions{width:100%;justify-content:stretch}.ws-assistant-submit-actions .ws-button{flex:1 1 100%}}
