@@ -2,6 +2,7 @@ import { api } from "./api";
 import { getFirebaseRuntime } from "./firebaseRuntime";
 
 const MODEL = "gemini-3.8-flash";
+const FALLBACK_MODEL = "gemini-3.5-flash-lite";
 const MAX_TOOL_CALLS_PER_ROUND = 4;
 const MAX_EXTRACTION_FILE_BYTES = 5 * 1024 * 1024;
 
@@ -44,6 +45,11 @@ function toFirebaseFunction(tool, Schema, SchemaType) {
   return declaration;
 }
 
+function isTransientModelError(error) {
+  return /\b(429|500|502|503|504)\b|high demand|overload|resource exhausted|temporarily unavailable/i
+    .test(`${error?.message || ""} ${error?.code || ""}`);
+}
+
 async function runFinancialTool(call, allowedNames) {
   if (!allowedNames.has(call.name)) {
     return { result: { error: "That read-only financial tool is not available to your account." }, succeeded: false };
@@ -68,12 +74,11 @@ export async function askFirebaseAssistant(question, conversationHistory = []) {
   const allowedNames = new Set(tools.map(tool => tool.name));
   const runtime = await getFirebaseRuntime();
   const declarations = tools.map(tool => toFirebaseFunction(tool, runtime.Schema, runtime.SchemaType));
-  const model = runtime.getGenerativeModel(runtime.ai, {
-    model: session.model || MODEL,
+  const modelOptions = {
     systemInstruction: assistantSystemInstruction(session),
     generationConfig: { temperature: 0.2, maxOutputTokens: 1800 },
     ...(declarations.length ? { tools: [{ functionDeclarations: declarations }] } : {})
-  });
+  };
 
   const history = Array.isArray(conversationHistory)
     ? conversationHistory
@@ -81,8 +86,15 @@ export async function askFirebaseAssistant(question, conversationHistory = []) {
       .slice(-20)
       .map(message => ({ role: message.role, parts: [{ text: message.text.slice(0, 4000) }] }))
     : [];
-  const chat = model.startChat({ history });
-  let response = await chat.sendMessage(text);
+  let chat = runtime.getGenerativeModel(runtime.ai, { ...modelOptions, model: session.model || MODEL }).startChat({ history });
+  let response;
+  try {
+    response = await chat.sendMessage(text);
+  } catch (error) {
+    if (!isTransientModelError(error) || (session.model || MODEL) === FALLBACK_MODEL) throw error;
+    chat = runtime.getGenerativeModel(runtime.ai, { ...modelOptions, model: FALLBACK_MODEL }).startChat({ history });
+    response = await chat.sendMessage(text);
+  }
   const sources = [];
   const maxRounds = Math.max(1, Math.min(5, Number(session.maxToolRounds) || 3));
 
