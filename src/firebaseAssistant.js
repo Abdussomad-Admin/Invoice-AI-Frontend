@@ -25,6 +25,7 @@ Rules:
 12. Never promise credit, a loan, approval, or financial returns. Invoice AI is not a lender, bank, or credit bureau.
 13. For profit predictions, use get_profit_outlook and explain that it is based on the previous three complete months, not a guarantee. Keep it separate from cash-flow forecasts and actual profit.
 14. Do not claim to have retrieved records unless a tool returned them successfully.
+15. When a user asks for a comparison or a list of several records with the same fields, use a compact Markdown table when it improves readability. Do not use a table for a single figure or a short explanation.
 `.trim();
 
 function toFirebaseFunction(tool, Schema, SchemaType) {
@@ -65,7 +66,20 @@ async function runFinancialTool(call, allowedNames) {
   }
 }
 
-export async function askFirebaseAssistant(question, conversationHistory = []) {
+async function sendMessageStream(chat, request, onText) {
+  const result = await chat.sendMessageStream(request);
+  let text = "";
+  for await (const chunk of result.stream) {
+    const part = chunk.candidates?.flatMap(candidate => candidate.content?.parts || []).map(item => item.text || "").join("") || "";
+    if (part) {
+      text += part;
+      onText?.(text);
+    }
+  }
+  return result.response;
+}
+
+export async function askFirebaseAssistant(question, conversationHistory = [], onText) {
   const text = String(question || "").trim();
   if (!text) throw new Error("Ask a question first.");
 
@@ -76,24 +90,25 @@ export async function askFirebaseAssistant(question, conversationHistory = []) {
   const declarations = tools.map(tool => toFirebaseFunction(tool, runtime.Schema, runtime.SchemaType));
   const modelOptions = {
     systemInstruction: assistantSystemInstruction(session),
-    generationConfig: { temperature: 0.2, maxOutputTokens: 1800 },
+    generationConfig: { temperature: 0.2, maxOutputTokens: 1000 },
     ...(declarations.length ? { tools: [{ functionDeclarations: declarations }] } : {})
   };
 
   const history = Array.isArray(conversationHistory)
     ? conversationHistory
       .filter(message => (message?.role === "user" || message?.role === "model") && typeof message?.text === "string")
-      .slice(-20)
-      .map(message => ({ role: message.role, parts: [{ text: message.text.slice(0, 4000) }] }))
+      .slice(-8)
+      .map(message => ({ role: message.role, parts: [{ text: message.text.slice(0, 2000) }] }))
     : [];
   let chat = runtime.getGenerativeModel(runtime.ai, { ...modelOptions, model: session.model || MODEL }).startChat({ history });
   let response;
   try {
-    response = await chat.sendMessage(text);
+    response = await sendMessageStream(chat, text, onText);
   } catch (error) {
     if (!isTransientModelError(error) || (session.model || MODEL) === FALLBACK_MODEL) throw error;
     chat = runtime.getGenerativeModel(runtime.ai, { ...modelOptions, model: FALLBACK_MODEL }).startChat({ history });
-    response = await chat.sendMessage(text);
+    onText?.("");
+    response = await sendMessageStream(chat, text, onText);
   }
   const sources = [];
   const maxRounds = Math.max(1, Math.min(5, Number(session.maxToolRounds) || 3));
@@ -130,7 +145,8 @@ export async function askFirebaseAssistant(question, conversationHistory = []) {
         }
       };
     });
-    response = await chat.sendMessage(responses);
+    onText?.("");
+    response = await sendMessageStream(chat, responses, onText);
   }
 
   const answer = response.response.text?.()?.trim();

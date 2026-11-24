@@ -852,22 +852,47 @@ function AssistantFinancialVisualization({ result }) {
     return { month, income: Number(row.income) || 0, expenses: Number(row.expenses) || 0 };
   });
   const canChart = chartRows.length > 1 && chartRows.some(row => row.income > 0 || row.expenses > 0);
-  const insights = [
+  const metrics = [
     ["Total income", period.income],
     ["Total expenses", period.expenses],
     ["Estimated profit", period.estimatedProfit],
     ["Net cash flow", period.netCashFlow]
   ];
+  const insights = [
+    ["Sales invoices", String(period.invoiceCount ?? 0)],
+    ["Supplier bills", String(period.billCount ?? 0)],
+    ["Income vs expenses", period.expensesExceedIncome ? "Expenses are higher" : "Income is higher"]
+  ];
 
   return <section className="ws-assistant-insights" aria-label="Financial visualization from your records">
+    <div className="ws-assistant-summary-metrics">{metrics.map(([label, value], index)=><article className={`metric-${index + 1}`} key={label}><span>{label}</span><b>{formatMoney(value, currencyCode)}</b></article>)}</div>
     {canChart && <div className="ws-assistant-chart-card">
       <div className="ws-assistant-visual-heading"><ChartNoAxesCombined/><h3>Income vs expenses</h3><span>{chartRows.length} months</span></div>
       <div className="ws-assistant-chart-legend"><span><i className="income"/>Income</span><span><i className="expenses"/>Expenses</span></div>
       <GroupedMoneyChart rows={chartRows.map(row=>({month:row.month,income:row.income,expenses:row.expenses}))} currencyCode={currencyCode} label={`Monthly income and expenses for ${chartRows.length} months`}/>
       <small className="ws-assistant-chart-note">Monthly income and supplier expenses recorded in this workspace.</small>
     </div>}
-    <aside className="ws-assistant-key-insights"><h3><Sparkles/> Key insights</h3>{insights.map(([label, value])=><div key={label}><CheckCircle2/><span>{label}<b>{formatMoney(value, currencyCode)}</b></span></div>)}<small>Profit is estimated from recorded income and supplier bills.</small></aside>
+    <aside className="ws-assistant-key-insights"><h3><Sparkles/> Key insights</h3>{insights.map(([label, value])=><div key={label}><CheckCircle2/><span>{label}<b>{value}</b></span></div>)}<small>Profit is estimated from recorded income and supplier bills.</small></aside>
   </section>;
+}
+
+function AssistantResponseText({ text }) {
+  const lines = String(text || "").split("\n");
+  const blocks = [];
+  for (let i = 0; i < lines.length;) {
+    if (lines[i].includes("|") && i + 1 < lines.length && /^\s*\|?\s*:?-{3,}/.test(lines[i + 1])) {
+      const cells = line => line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map(cell => cell.trim());
+      const headers = cells(lines[i]); i += 2;
+      const rows = [];
+      while (i < lines.length && lines[i].includes("|")) rows.push(cells(lines[i++]));
+      blocks.push(<div className="ws-assistant-table-wrap" key={`table-${i}`}><table><thead><tr>{headers.map((cell,index)=><th key={index}>{cell}</th>)}</tr></thead><tbody>{rows.map((row,rowIndex)=><tr key={rowIndex}>{headers.map((_,index)=><td key={index}>{row[index] || "—"}</td>)}</tr>)}</tbody></table></div>);
+    } else {
+      const paragraph = [];
+      while (i < lines.length && !(lines[i].includes("|") && i + 1 < lines.length && /^\s*\|?\s*:?-{3,}/.test(lines[i + 1]))) paragraph.push(lines[i++]);
+      if (paragraph.some(line => line.trim())) blocks.push(<p key={`text-${i}`}>{paragraph.join("\n")}</p>);
+    }
+  }
+  return <div className="ws-assistant-response-text">{blocks}</div>;
 }
 
 function FinancialAssistantPage({ tools, question, setQuestion, result, busy, onAsk, onNewChat, messages, deviceBusy, deviceProgress, onAskOnDevice, deviceConfigured }) {
@@ -880,7 +905,7 @@ function FinancialAssistantPage({ tools, question, setQuestion, result, busy, on
   const prompts = ["Which invoices are overdue?", "How much did I receive this month?", "Compare my income and expenses."];
   return <div className="ws-report-page ws-assistant-page">
     <section className="ws-report-hero assistant"><div><span>INVOICE AI ASSISTANT</span><h2>Ask a clear question about your finances</h2><p>Get answers based on the invoices, payments and supplier bills recorded in your workspace.</p></div><span className="ws-report-hero-icon"><Bot/></span></section>
-    <section className="ws-card ws-assistant-card"><div className="ws-assistant-intro"><span className="ws-assistant-icon"><Sparkles/></span><div><h3>Your conversation</h3><p>Ask in everyday language. Your workspace data stays permission-checked.</p></div><button className="ws-button secondary ws-assistant-new-chat" type="button" onClick={onNewChat}>New chat</button></div>{messages.length===0?<div className="ws-assistant-conversation ws-assistant-empty-chat"><article className="ws-assistant-message model"><span className="ws-chat-avatar"><Bot/></span><div><b>Invoice AI</b><p>Hello! How can I help you with your business finances today?</p><p>Ask me about income, expenses, estimated profit, cash flow, overdue invoices, or bills.</p></div></article><div className="ws-assistant-suggestions">{prompts.map(prompt=><button className="ws-assistant-suggestion" type="button" key={prompt} onClick={()=>setQuestion(prompt)}>{prompt}<ArrowUpRight/></button>)}</div></div>:<div className="ws-assistant-conversation" aria-live="polite">{messages.map((message,index)=><article className={`ws-assistant-message ${message.role}`} key={`${index}-${message.role}`}><span className="ws-chat-avatar">{message.role==="user"?"You":<Bot/>}</span><div><b>{message.role==="user"?"You":"Invoice AI"}</b><p>{message.text}</p>{message.role==="model"&&index===messages.length-1&&result?.sources?.length>0&&<AssistantFinancialVisualization result={result}/>}</div></article>)}</div>}<form className="ws-ask ws-assistant-form" onSubmit={onAsk}><textarea aria-label="Your message" id="financial-assistant-question" value={question} onChange={e=>setQuestion(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();if(!busy&&!deviceBusy&&question.trim())e.currentTarget.form?.requestSubmit();}}} placeholder="Message Invoice AI… (Enter to send, Shift+Enter for a new line)" required/><div className="ws-assistant-form-footer"><small>AI answers use your saved financial records.</small><div className="ws-assistant-submit-actions"><button className="ws-button primary" disabled={busy||deviceBusy||!question.trim()}>{busy?<><RefreshCw className="ws-spin"/> Thinking…</>:<><Bot/> Send</>}</button><button className="ws-button secondary ws-on-device-button" type="button" disabled={busy||deviceBusy||!question.trim()||!deviceConfigured||!deviceSdkReady} onClick={onAskOnDevice} title="General answers on this device; cannot read workspace records">{deviceBusy?<><RefreshCw className="ws-spin"/> Preparing…</>:<><Shield/> On-device</>}</button></div></div></form></section>
+    <section className="ws-card ws-assistant-card"><div className="ws-assistant-intro"><span className="ws-assistant-icon"><Sparkles/></span><div><h3>Your conversation</h3><p>Ask in everyday language. Your workspace data stays permission-checked.</p></div><button className="ws-button secondary ws-assistant-new-chat" type="button" onClick={onNewChat}>New chat</button></div>{messages.length===0?<div className="ws-assistant-conversation ws-assistant-empty-chat"><article className="ws-assistant-message model"><span className="ws-chat-avatar"><Bot/></span><div><b>Invoice AI</b><p>Hello! How can I help you with your business finances today?</p><p>Ask me about income, expenses, estimated profit, cash flow, overdue invoices, or bills.</p></div></article><div className="ws-assistant-suggestions">{prompts.map(prompt=><button className="ws-assistant-suggestion" type="button" key={prompt} onClick={()=>setQuestion(prompt)}>{prompt}<ArrowUpRight/></button>)}</div></div>:<div className="ws-assistant-conversation" aria-live="polite">{messages.map((message,index)=><article className={`ws-assistant-message ${message.role}`} key={`${index}-${message.role}`}><span className="ws-chat-avatar">{message.role==="user"?"You":<Bot/>}</span><div><b>{message.role==="user"?"You":"Invoice AI"}</b>{message.role==="model"?(message.text?<AssistantResponseText text={message.text}/>:<p className="ws-assistant-thinking">Checking your records<span>…</span></p>):<p>{message.text}</p>}{message.role==="model"&&index===messages.length-1&&result?.sources?.length>0&&<AssistantFinancialVisualization result={result}/>}</div></article>)}</div>}<form className="ws-ask ws-assistant-form" onSubmit={onAsk}><textarea aria-label="Your message" id="financial-assistant-question" value={question} onChange={e=>setQuestion(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();if(!busy&&!deviceBusy&&question.trim())e.currentTarget.form?.requestSubmit();}}} placeholder="Message Invoice AI… (Enter to send, Shift+Enter for a new line)" required/><div className="ws-assistant-form-footer"><small>AI answers use your saved financial records.</small><div className="ws-assistant-submit-actions"><button className="ws-button primary" disabled={busy||deviceBusy||!question.trim()}>{busy?<><RefreshCw className="ws-spin"/> Thinking…</>:<><Bot/> Send</>}</button><button className="ws-button secondary ws-on-device-button" type="button" disabled={busy||deviceBusy||!question.trim()||!deviceConfigured||!deviceSdkReady} onClick={onAskOnDevice} title="General answers on this device; cannot read workspace records">{deviceBusy?<><RefreshCw className="ws-spin"/> Preparing…</>:<><Shield/> On-device</>}</button></div></div></form></section>
     {asList(tools).length>0&&<section className="ws-card ws-assistant-capabilities"><div><span>AVAILABLE DATA</span><h3>What the assistant can check</h3></div><div>{asList(tools).slice(0,6).map((tool,index)=><span key={tool.name||tool.id||index}><CheckCircle2/>{tool.name||tool.title||tool.description||"Workspace finance data"}</span>)}</div></section>}
   </div>;
 }
@@ -1158,7 +1183,7 @@ export default function Workspace({ path, navigate }) {
   const filtered = useMemo(() => query ? list.filter(row => JSON.stringify(row).toLowerCase().includes(query.toLowerCase())) : data, [data, list, query]);
   const addKind = path === "/app/customers" ? "customer" : path === "/app/suppliers" ? "supplier" : path === "/app/supplier-invoices" ? "bill" : path === "/app/invitations" ? "invite" : path === "/app/invoice-new" || (path === "/app/invoice-detail" && editingRecord?.id) ? "invoice" : "organization";
   const canCreate = ["/app/customers", "/app/suppliers", "/app/supplier-invoices", "/app/invitations", "/app/invoice-new", "/app/organization", "/app/organization-setup"].includes(path);
-  const doAsk = async e => { e.preventDefault(); const asked = question.trim(); setBusy(true); setAssistantResult(null); try { const r = await askFirebaseAssistant(asked, assistantMessages); setAssistantMessages(previous => [...previous, { role: "user", text: asked }, { role: "model", text: r.answer }].slice(-20)); setAssistantResult(r); } catch (e2) { setAssistantResult({ answer: e2.message, sources: [] }); } finally { setBusy(false); } };
+  const doAsk = async e => { e.preventDefault(); const asked = question.trim(); if (!asked || busy) return; const history = assistantMessages; setBusy(true); setAssistantResult(null); setQuestion(""); setAssistantMessages(previous => [...previous, { role: "user", text: asked }, { role: "model", text: "" }].slice(-20)); const updateLastReply = text => setAssistantMessages(previous => previous.map((message, index) => index === previous.length - 1 ? { ...message, text } : message)); try { const r = await askFirebaseAssistant(asked, history, updateLastReply); updateLastReply(r.answer); setAssistantResult(r); } catch (e2) { updateLastReply(e2.message || "Invoice AI could not answer right now. Please try again."); setAssistantResult({ answer: e2.message, sources: [] }); } finally { setBusy(false); } };
   const startNewAssistantChat = () => { setAssistantMessages([]); setAssistantResult(null); setQuestion(""); };
   const doAskOnDevice = async () => {
     if (!question.trim()) return;
