@@ -942,12 +942,36 @@ function downloadAssistantAnswer(text, format = "md") {
 
 function FinancialAssistantPage({ tools, question, setQuestion, result, busy, onAsk, onNewChat, messages, deviceBusy, deviceProgress, onAskOnDevice, deviceConfigured, attachment, attachmentError, onAttachmentChange, onAttachmentRemove, imageMode, onToggleImageMode, navigate }) {
   const attachmentInputRef = useRef(null);
+  const conversationRef = useRef(null);
+  const messageCountRef = useRef(messages.length);
+  const followConversationRef = useRef(true);
+  const scrollbarTimerRef = useRef(null);
+  const [scrollbarVisible, setScrollbarVisible] = useState(false);
   const [deviceSdkReady, setDeviceSdkReady] = useState(false);
   useEffect(() => {
     let active = true;
     if (deviceConfigured) preloadOnDeviceSdk().then(() => { if (active) setDeviceSdkReady(true); }).catch(() => {});
     return () => { active = false; };
   }, [deviceConfigured]);
+  useEffect(() => {
+    const conversation = conversationRef.current;
+    if (!conversation) return;
+    if (messages.length > messageCountRef.current) followConversationRef.current = true;
+    messageCountRef.current = messages.length;
+    if (!followConversationRef.current) return;
+    const frame = window.requestAnimationFrame(() => { conversation.scrollTop = conversation.scrollHeight; });
+    return () => window.cancelAnimationFrame(frame);
+  }, [messages, result]);
+  useEffect(() => () => window.clearTimeout(scrollbarTimerRef.current), []);
+  const showConversationScrollbar = () => {
+    setScrollbarVisible(true);
+    window.clearTimeout(scrollbarTimerRef.current);
+    scrollbarTimerRef.current = window.setTimeout(() => setScrollbarVisible(false), 650);
+  };
+  const handleConversationScroll = event => {
+    const element = event.currentTarget;
+    followConversationRef.current = element.scrollHeight - element.clientHeight - element.scrollTop < 72;
+  };
   const prompts = ["Which invoices are overdue?", "How much did I receive this month?", "Compare my income and expenses."];
   const availableTools = asList(tools);
   const toolNames = availableTools.map(tool => `${tool.name || ""} ${tool.title || ""} ${tool.description || ""}`.toLowerCase()).join(" ");
@@ -976,10 +1000,10 @@ function FinancialAssistantPage({ tools, question, setQuestion, result, busy, on
           <div><h3>Chat with Invoice AI</h3><p>Ask about your invoices, payments, clients and more.</p></div>
           <button className="ws-button secondary ws-assistant-new-chat" type="button" onClick={onNewChat}>New chat</button>
         </div>
-        {messages.length === 0 ? <div className="ws-assistant-conversation ws-assistant-empty-chat">
+        {messages.length === 0 ? <div ref={conversationRef} className={`ws-assistant-conversation ws-assistant-empty-chat${scrollbarVisible ? " is-scrolling" : ""}`} onScroll={handleConversationScroll} onWheel={showConversationScrollbar} onTouchMove={showConversationScrollbar}>
           <article className="ws-assistant-message model"><span className="ws-chat-avatar"><Sparkles/></span><div><b>Invoice AI</b><p>Hello! How can I help you with your business finances today?</p><p>Ask me about income, expenses, estimated profit, cash flow, overdue invoices, or bills.</p></div></article>
           <div className="ws-assistant-suggestions">{prompts.map(prompt => <button className="ws-assistant-suggestion" type="button" key={prompt} onClick={() => setQuestion(prompt)}>{prompt}<ArrowUpRight/></button>)}</div>
-        </div> : <div className="ws-assistant-conversation" aria-live="polite">
+        </div> : <div ref={conversationRef} className={`ws-assistant-conversation${scrollbarVisible ? " is-scrolling" : ""}`} aria-live="polite" onScroll={handleConversationScroll} onWheel={showConversationScrollbar} onTouchMove={showConversationScrollbar}>
           {messages.map((message, index) => <article className={`ws-assistant-message ${message.role}`} key={`${index}-${message.role}`}>
             <span className="ws-chat-avatar">{message.role === "user" ? "You" : <Sparkles/>}</span>
             <div>

@@ -143,7 +143,16 @@
   gap: 14px;
   margin: 15px 0 13px;
   padding: 9px 2px 12px;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  scrollbar-color: transparent transparent;
 }
+
+.ws-assistant-page .ws-assistant-conversation::-webkit-scrollbar { width: 0; height: 0; }
+.ws-assistant-page .ws-assistant-conversation.is-scrolling { scrollbar-width: thin; scrollbar-color: #9e8abb transparent; }
+.ws-assistant-page .ws-assistant-conversation.is-scrolling::-webkit-scrollbar { width: 3px; height: 3px; }
+.ws-assistant-page .ws-assistant-conversation.is-scrolling::-webkit-scrollbar-track { background: transparent; }
+.ws-assistant-page .ws-assistant-conversation.is-scrolling::-webkit-scrollbar-thumb { border-radius: 5px; background: #9e8abb; }
 
 .ws-assistant-page .ws-assistant-empty-chat {
   display: flex;
