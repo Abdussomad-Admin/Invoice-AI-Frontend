@@ -597,6 +597,7 @@
 .ws-on-device-button{border-color:#d9cff0!important;background:#faf8ff!important;color:#5935a7!important}
 .ws-on-device-button:hover:not(:disabled){border-color:#a98de5!important;background:#f1eaff!important}
 .ws-on-device-button:disabled{opacity:.58;cursor:not-allowed}
+.ws-assistant-device-status{display:block;margin-top:8px;color:#817895;font-size:9px;line-height:1.45}
 .ws-on-device-hint{display:block;margin:10px 0 0;color:#746b86;font-size:11px;line-height:1.6}
 .ws-assistant-answer-note{display:block;margin-top:8px;padding:9px 11px;border-left:3px solid #7650d7;border-radius:0 8px 8px 0;background:#f7f3ff;color:#64567f;font-size:11px;line-height:1.5}
 @media(max-width:640px){.ws-assistant-submit-actions{width:100%;justify-content:stretch}.ws-assistant-submit-actions .ws-button{flex:1 1 100%}}

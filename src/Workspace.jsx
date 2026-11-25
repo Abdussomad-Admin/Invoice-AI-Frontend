@@ -6,7 +6,7 @@ import { askFirebaseAssistant, extractSupplierBillWithFirebase, friendlyAssistan
 import Toast from "./Toast";
 import RecurringInvoices from "./RecurringInvoices";
 import WorkspaceTour, { TOUR_KEY } from "./WorkspaceTour";
-import { askOnDevice, firebaseOnDeviceConfigured, preloadOnDeviceSdk } from "./firebaseOnDeviceAssistant";
+import { askOnDevice, checkOnDeviceAvailability, firebaseOnDeviceConfigured, preloadOnDeviceSdk } from "./firebaseOnDeviceAssistant";
 import "./workspace.css";
 import "./dashboard-overrides.css";
 import "./assistant-page.css";
@@ -948,9 +948,20 @@ function FinancialAssistantPage({ tools, question, setQuestion, result, busy, on
   const scrollbarTimerRef = useRef(null);
   const [scrollbarVisible, setScrollbarVisible] = useState(false);
   const [deviceSdkReady, setDeviceSdkReady] = useState(false);
+  const [deviceAvailability, setDeviceAvailability] = useState("checking");
   useEffect(() => {
     let active = true;
-    if (deviceConfigured) preloadOnDeviceSdk().then(() => { if (active) setDeviceSdkReady(true); }).catch(() => {});
+    setDeviceAvailability("checking");
+    if (deviceConfigured) {
+      Promise.allSettled([preloadOnDeviceSdk(), checkOnDeviceAvailability()]).then(([sdk, availability]) => {
+        if (!active) return;
+        setDeviceSdkReady(sdk.status === "fulfilled");
+        setDeviceAvailability(sdk.status !== "fulfilled" ? "firebase-error" : availability.status === "fulfilled" ? availability.value : "unknown");
+      });
+    } else {
+      setDeviceSdkReady(false);
+      setDeviceAvailability("not-configured");
+    }
     return () => { active = false; };
   }, [deviceConfigured]);
   useEffect(() => {
@@ -1008,7 +1019,7 @@ function FinancialAssistantPage({ tools, question, setQuestion, result, busy, on
             <span className="ws-chat-avatar">{message.role === "user" ? "You" : <Sparkles/>}</span>
             <div>
               <b>{message.role === "user" ? "You" : "Invoice AI"}</b>
-              {message.role === "model" ? (message.text ? <AssistantResponseText text={message.text}/> : <p className="ws-assistant-thinking">{imageMode ? "Creating your image" : "Checking your records"}<span>…</span></p>) : <>
+              {message.role === "model" ? (message.text ? <><AssistantResponseText text={message.text}/>{message.notice && <small className="ws-assistant-answer-note">{message.notice}</small>}</> : <p className="ws-assistant-thinking">{deviceBusy ? `Preparing the on-device model${deviceProgress > 0 ? ` · ${deviceProgress}%` : "…"}` : imageMode ? "Creating your image" : "Checking your records"}<span>{deviceBusy && deviceProgress > 0 ? "" : "…"}</span></p>) : <>
                 <p>{message.text}</p>
                 {message.attachmentName && <span className="ws-assistant-message-file"><Paperclip/>{message.attachmentName}</span>}
               </>}
@@ -1027,8 +1038,9 @@ function FinancialAssistantPage({ tools, question, setQuestion, result, busy, on
             <button className="ws-button secondary ws-assistant-attach-button" type="button" disabled={busy || deviceBusy} onClick={() => attachmentInputRef.current?.click()}><Paperclip/> Attach file</button>
             <button className={`ws-button secondary ws-assistant-image-toggle${imageMode ? " active" : ""}`} type="button" disabled={busy || deviceBusy} aria-pressed={imageMode} onClick={onToggleImageMode}><ImagePlus/> {imageMode ? "Image mode on" : "Generate image"}</button>
             <button className="ws-button primary" disabled={busy || deviceBusy || (!question.trim() && !attachment)}>{busy ? <><RefreshCw className="ws-spin"/> {imageMode ? "Creating…" : "Thinking…"}</> : imageMode ? <><ImagePlus/> Create image</> : <><Bot/> Send</>}</button>
-            {!imageMode && <button className="ws-button secondary ws-on-device-button" type="button" disabled={busy || deviceBusy || !question.trim() || !!attachment || !deviceConfigured || !deviceSdkReady} onClick={onAskOnDevice} title="General answers on this device; cannot read workspace records or uploaded files">{deviceBusy ? <><RefreshCw className="ws-spin"/> Preparing…</> : <><Shield/> On-device</>}</button>}
+            {!imageMode && <button className="ws-button secondary ws-on-device-button" type="button" disabled={busy || deviceBusy || !question.trim() || !!attachment || !deviceConfigured || !deviceSdkReady || deviceAvailability === "checking" || deviceAvailability === "unsupported" || deviceAvailability === "unavailable"} onClick={onAskOnDevice} title="General answers on this device; cannot read workspace records or uploaded files">{deviceBusy ? <><RefreshCw className="ws-spin"/> Preparing…</> : deviceAvailability === "downloadable" || deviceAvailability === "downloading" ? <><Download/> Prepare on-device</> : <><Shield/> On-device</>}</button>}
           </div></div>
+          {!imageMode && <small className="ws-assistant-device-status" aria-live="polite">{!deviceConfigured || deviceAvailability === "not-configured" ? "On-device help is not configured on this app right now." : deviceAvailability === "firebase-error" ? "Could not connect the on-device assistant to Firebase. Refresh the page and try again." : deviceAvailability === "checking" ? "Checking this browser for its on-device model…" : deviceAvailability === "unsupported" ? "On-device help needs desktop Chrome 139 or newer with Chrome’s local AI model supported and enabled." : deviceAvailability === "unavailable" ? "Chrome reports that the local AI model is unavailable on this device. Check Chrome’s model status and device storage or hardware requirements." : deviceAvailability === "downloadable" ? "Chrome supports on-device AI. The first use downloads its model and may take a few minutes." : deviceAvailability === "downloading" ? "Chrome is downloading the on-device model. Keep this page open and stay online until setup finishes." : deviceAvailability === "available" ? "On-device AI is ready in this browser. It answers general questions only and cannot access your workspace records." : "Could not check Chrome’s on-device model status. You can still try On-device if this is desktop Chrome 139 or newer."}</small>}
         </form>
       </section>
       <aside className="ws-assistant-side-panel" aria-label="Assistant tools and workspace data">
@@ -1357,22 +1369,36 @@ export default function Workspace({ path, navigate }) {
   };
   const startNewAssistantChat = () => { setAssistantMessages([]); setAssistantResult(null); setQuestion(""); setAssistantFile(null); setAssistantFileError(""); setAssistantImageMode(false); };
   const doAskOnDevice = async () => {
-    if (!question.trim()) return;
+    const asked = question.trim();
+    if (!asked || deviceAssistantBusy || busy) return;
     setDeviceAssistantBusy(true); setDeviceAssistantProgress(0); setAssistantResult(null);
+    setQuestion("");
+    setAssistantMessages(previous => [...previous, { role: "user", text: asked }, { role: "model", text: "" }].slice(-20));
+    const updateLastReply = (text, extra = {}) => setAssistantMessages(previous => previous.map((message, index) => index === previous.length - 1 ? { ...message, text, ...extra } : message));
     try {
-      const answer = await askOnDevice(question, setDeviceAssistantProgress);
-      setAssistantResult({ answer, sources: [], mode: "on-device", notice: "Generated locally on this device. This answer cannot see your saved financial records." });
+      const answer = await askOnDevice(asked, setDeviceAssistantProgress);
+      const notice = "Generated locally on this device. This answer cannot see your saved financial records.";
+      updateLastReply(answer, { notice });
+      setAssistantResult({ answer, sources: [], mode: "on-device", notice });
     } catch (e) {
       const message = String(e?.message || "");
-      const friendly = /firebase ai logic is not configured|app check enabled|site key|under 500 characters|type a question|use local help offline|secure connection|still preparing/i.test(message)
+      const friendly = /chrome reports/i.test(message)
+        ? "Chrome cannot run its local AI model on this device right now. Check Chrome’s model status and device requirements, or use Ask Invoice AI online."
+        : /not available in this browser/i.test(message)
+          ? "On-device AI needs desktop Chrome 139 or newer with Chrome’s local AI model enabled. You can still use Ask Invoice AI online."
+        : /firebase ai logic is not configured|app check enabled|site key|under 500 characters|type a question|use local help offline|secure connection|still preparing/i.test(message)
         ? message
-        : /languagemodel|prompt api|not supported|on-device model.*available|not available.*device/i.test(message)
+        : /languagemodel|prompt api|not supported|on-device model.*available|not available.*device|not available in this browser|chrome reports/i.test(message)
           ? "On-device AI needs desktop Chrome 139 or newer with Chrome’s Prompt API and model enabled. You can still use Ask Invoice AI for workspace questions."
           : !navigator.onLine
             ? "The local model is not ready in this page yet. Connect once, prepare it, and then use on-device help offline while this page stays open."
             : "The on-device model could not start. Check that Chrome’s on-device AI model is available, then try again.";
+      updateLastReply(friendly, { notice: "Your question was not sent to Invoice AI’s financial-record tools." });
       setAssistantResult({ answer: friendly, sources: [], mode: "on-device", notice: "Your question was not sent to Invoice AI’s financial-record tools." });
-    } finally { setDeviceAssistantBusy(false); }
+    } finally {
+      setDeviceAssistantBusy(false);
+      checkOnDeviceAvailability().then(setDeviceAvailability).catch(() => setDeviceAvailability("unknown"));
+    }
   };
   const runFirebaseExtraction = async (id, selectedFile) => {
     const preparation = await api(`/api/supplier-documents/${id}/extract/firebase/prepare`, { method: "POST" });
