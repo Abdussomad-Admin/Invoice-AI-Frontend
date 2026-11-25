@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDownLeft, ArrowLeft, ArrowRight, ArrowUpRight, Bell, Bot, Building2, CalendarDays, ChartNoAxesCombined, CheckCircle2, ChevronDown, CircleDollarSign, CircleHelp, Clock3, CreditCard, FileText, Home, Landmark, LayoutDashboard, LogOut, Menu, Paperclip, Plus, RefreshCw, Repeat, Search, Settings, Share2, Shield, Sparkles, Upload, Users, WalletCards, X, Zap } from "lucide-react";
+import { ArrowDownLeft, ArrowLeft, ArrowRight, ArrowUpRight, Bell, Bot, Building2, CalendarDays, ChartNoAxesCombined, CheckCircle2, ChevronDown, CircleDollarSign, CircleHelp, Clock3, CreditCard, Database, Download, FileDown, FileText, Home, ImagePlus, Landmark, LayoutDashboard, LogOut, Menu, Paperclip, Plus, RefreshCw, Repeat, Search, Settings, Share2, Shield, Sparkles, Upload, Users, WalletCards, X, Zap } from "lucide-react";
 import { api, apiBlob, clearSession, friendlyErrorMessage } from "./api";
 import { buildCreditReadiness } from "./creditReadiness";
-import { askFirebaseAssistant, extractSupplierBillWithFirebase } from "./firebaseAssistant";
+import { askFirebaseAssistant, extractSupplierBillWithFirebase, friendlyAssistantError, generateAssistantImage } from "./firebaseAssistant";
 import Toast from "./Toast";
 import RecurringInvoices from "./RecurringInvoices";
 import WorkspaceTour, { TOUR_KEY } from "./WorkspaceTour";
 import { askOnDevice, firebaseOnDeviceConfigured, preloadOnDeviceSdk } from "./firebaseOnDeviceAssistant";
 import "./workspace.css";
 import "./dashboard-overrides.css";
+import "./assistant-page.css";
 import "./modal.css";
 
 const groups = [
@@ -910,7 +911,36 @@ function AssistantResponseText({ text }) {
   return <div className="ws-assistant-response-text">{blocks}</div>;
 }
 
-function FinancialAssistantPage({ tools, question, setQuestion, result, busy, onAsk, onNewChat, messages, deviceBusy, deviceProgress, onAskOnDevice, deviceConfigured, attachment, attachmentError, onAttachmentChange, onAttachmentRemove, navigate }) {
+function assistantTableCsv(text) {
+  const lines = String(text || "").split(/\r?\n/);
+  const isTableLine = line => line.includes("|");
+  const cells = line => line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map(cell => cell.trim());
+  const separator = line => /^\s*\|?\s*:?-{3,}/.test(line);
+  for (let start = 0; start < lines.length - 1; start += 1) {
+    if (!isTableLine(lines[start]) || !isTableLine(lines[start + 1]) || !separator(lines[start + 1])) continue;
+    const rows = [cells(lines[start])];
+    for (let index = start + 2; index < lines.length && isTableLine(lines[index]); index += 1) rows.push(cells(lines[index]));
+    return rows.map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(",")).join("\r\n");
+  }
+  return "";
+}
+
+function downloadAssistantAnswer(text, format = "md") {
+  const content = format === "csv" ? assistantTableCsv(text) : String(text || "");
+  if (!content) return;
+  const mimeType = format === "csv" ? "text/csv;charset=utf-8" : "text/markdown;charset=utf-8";
+  const blob = new Blob([format === "csv" ? `\uFEFF${content}` : content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `invoice-ai-answer-${new Date().toISOString().slice(0, 10)}.${format}`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function FinancialAssistantPage({ tools, question, setQuestion, result, busy, onAsk, onNewChat, messages, deviceBusy, deviceProgress, onAskOnDevice, deviceConfigured, attachment, attachmentError, onAttachmentChange, onAttachmentRemove, imageMode, onToggleImageMode, navigate }) {
   const attachmentInputRef = useRef(null);
   const [deviceSdkReady, setDeviceSdkReady] = useState(false);
   useEffect(() => {
@@ -919,42 +949,75 @@ function FinancialAssistantPage({ tools, question, setQuestion, result, busy, on
     return () => { active = false; };
   }, [deviceConfigured]);
   const prompts = ["Which invoices are overdue?", "How much did I receive this month?", "Compare my income and expenses."];
+  const availableTools = asList(tools);
+  const toolNames = availableTools.map(tool => `${tool.name || ""} ${tool.title || ""} ${tool.description || ""}`.toLowerCase()).join(" ");
+  const dataAreas = [
+    [FileText, "Invoices & payments", /invoice|payment|receivable|payable/.test(toolNames)],
+    [Users, "Clients & customers", /customer|client/.test(toolNames)],
+    [ChartNoAxesCombined, "Analytics & reports", /report|summary|forecast|comparison|profit|cash.?flow/.test(toolNames)],
+    [WalletCards, "Supplier bills & expenses", /supplier|bill|expense/.test(toolNames)],
+    [Sparkles, "Business insights", /insight|outlook|trend/.test(toolNames)]
+  ].filter(([, , connected]) => connected);
+  const quickActions = [
+    [FileText, "Create invoice", "/app/invoice-new"],
+    [ChartNoAxesCombined, "View analytics", "/app/reports"],
+    [Users, "Manage clients", "/app/customers"],
+    [WalletCards, "Payment setup", "/app/payment-account"]
+  ];
   return <div className="ws-report-page ws-assistant-page">
-    <section className="ws-card ws-assistant-card">
-      <div className="ws-assistant-intro">
-        <span className="ws-assistant-icon"><Sparkles/></span>
-        <div><h3>Chat with Invoice AI</h3><p>Ask anything about your invoices, payments, clients and more.</p></div>
-        <button className="ws-button secondary ws-assistant-new-chat" type="button" onClick={onNewChat}>New chat</button>
-      </div>
-      {messages.length === 0 ? <div className="ws-assistant-conversation ws-assistant-empty-chat">
-        <article className="ws-assistant-message model"><span className="ws-chat-avatar"><Sparkles/></span><div><b>Invoice AI</b><p>Hello! How can I help you with your business finances today?</p><p>Ask me about income, expenses, estimated profit, cash flow, overdue invoices, or bills.</p></div></article>
-        <div className="ws-assistant-suggestions">{prompts.map(prompt => <button className="ws-assistant-suggestion" type="button" key={prompt} onClick={() => setQuestion(prompt)}>{prompt}<ArrowUpRight/></button>)}</div>
-      </div> : <div className="ws-assistant-conversation" aria-live="polite">
-        {messages.map((message, index) => <article className={`ws-assistant-message ${message.role}`} key={`${index}-${message.role}`}>
-          <span className="ws-chat-avatar">{message.role === "user" ? "You" : <Sparkles/>}</span>
-          <div>
-            <b>{message.role === "user" ? "You" : "Invoice AI"}</b>
-            {message.role === "model" ? (message.text ? <AssistantResponseText text={message.text}/> : <p className="ws-assistant-thinking">Checking your records<span>…</span></p>) : <>
-              <p>{message.text}</p>
-              {message.attachmentName && <span className="ws-assistant-message-file"><Paperclip/>{message.attachmentName}</span>}
-            </>}
-            {message.role === "model" && index === messages.length - 1 && result?.sources?.length > 0 && <AssistantFinancialVisualization result={result} navigate={navigate}/>}
-          </div>
-        </article>)}
-      </div>}
-      <form className="ws-ask ws-assistant-form" onSubmit={event => onAsk(event, attachment)}>
-        <input ref={attachmentInputRef} className="ws-assistant-file-input" type="file" accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png" onChange={event => { onAttachmentChange(event.target.files?.[0]); event.target.value = ""; }}/>
-        <textarea aria-label="Your message" id="financial-assistant-question" value={question} onChange={event => setQuestion(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); if (!busy && !deviceBusy && (question.trim() || attachment)) event.currentTarget.form?.requestSubmit(); } }} placeholder="Message Invoice AI… (Enter to send, Shift+Enter for a new line)"/>
-        {attachment && <div className="ws-assistant-attachment-chip"><Paperclip/><span>{attachment.name}<small>{(attachment.size / 1024 / 1024).toFixed(1)} MB · Attached for this question</small></span><button type="button" onClick={onAttachmentRemove} aria-label="Remove attachment"><X/></button></div>}
-        {attachmentError && <p className="ws-error ws-assistant-file-error">{attachmentError}</p>}
-        <div className="ws-assistant-form-footer"><small>AI answers use your saved financial records. Attach a PDF, JPG or PNG (up to 5 MB).</small><div className="ws-assistant-submit-actions">
-          <button className="ws-button secondary ws-assistant-attach-button" type="button" disabled={busy || deviceBusy} onClick={() => attachmentInputRef.current?.click()}><Paperclip/> Attach file</button>
-          <button className="ws-button primary" disabled={busy || deviceBusy || (!question.trim() && !attachment)}>{busy ? <><RefreshCw className="ws-spin"/> Thinking…</> : <><Bot/> Send</>}</button>
-          <button className="ws-button secondary ws-on-device-button" type="button" disabled={busy || deviceBusy || !question.trim() || !!attachment || !deviceConfigured || !deviceSdkReady} onClick={onAskOnDevice} title="General answers on this device; cannot read workspace records or uploaded files">{deviceBusy ? <><RefreshCw className="ws-spin"/> Preparing…</> : <><Shield/> On-device</>}</button>
-        </div></div>
-      </form>
+    <section className="ws-assistant-hero">
+      <div className="ws-assistant-hero-copy"><span>INVOICE AI ASSISTANT</span><h2>Your intelligent financial assistant</h2><p>Get insights, solve problems, and make smarter decisions with the records in your workspace.</p></div>
+      <div className="ws-assistant-hero-art" aria-hidden="true"><span className="hero-sparkles"><Sparkles/></span><span className="hero-bot"><Bot/></span><span className="hero-chart"><ChartNoAxesCombined/></span></div>
     </section>
-    {asList(tools).length > 0 && <section className="ws-card ws-assistant-capabilities"><div><span>AVAILABLE DATA</span><h3>What the assistant can check</h3></div><div>{asList(tools).slice(0, 6).map((tool, index) => <span key={tool.name || tool.id || index}><CheckCircle2/>{tool.name || tool.title || tool.description || "Workspace finance data"}</span>)}</div></section>}
+    <div className="ws-assistant-layout">
+      <section className="ws-card ws-assistant-card">
+        <div className="ws-assistant-intro">
+          <span className="ws-assistant-icon"><Sparkles/></span>
+          <div><h3>Chat with Invoice AI</h3><p>Ask about your invoices, payments, clients and more.</p></div>
+          <button className="ws-button secondary ws-assistant-new-chat" type="button" onClick={onNewChat}>New chat</button>
+        </div>
+        {messages.length === 0 ? <div className="ws-assistant-conversation ws-assistant-empty-chat">
+          <article className="ws-assistant-message model"><span className="ws-chat-avatar"><Sparkles/></span><div><b>Invoice AI</b><p>Hello! How can I help you with your business finances today?</p><p>Ask me about income, expenses, estimated profit, cash flow, overdue invoices, or bills.</p></div></article>
+          <div className="ws-assistant-suggestions">{prompts.map(prompt => <button className="ws-assistant-suggestion" type="button" key={prompt} onClick={() => setQuestion(prompt)}>{prompt}<ArrowUpRight/></button>)}</div>
+        </div> : <div className="ws-assistant-conversation" aria-live="polite">
+          {messages.map((message, index) => <article className={`ws-assistant-message ${message.role}`} key={`${index}-${message.role}`}>
+            <span className="ws-chat-avatar">{message.role === "user" ? "You" : <Sparkles/>}</span>
+            <div>
+              <b>{message.role === "user" ? "You" : "Invoice AI"}</b>
+              {message.role === "model" ? (message.text ? <AssistantResponseText text={message.text}/> : <p className="ws-assistant-thinking">{imageMode ? "Creating your image" : "Checking your records"}<span>…</span></p>) : <>
+                <p>{message.text}</p>
+                {message.attachmentName && <span className="ws-assistant-message-file"><Paperclip/>{message.attachmentName}</span>}
+              </>}
+              {message.imageDataUrl && <div className="ws-assistant-generated-image"><img src={message.imageDataUrl} alt={message.imageAlt || "Image generated by Invoice AI"}/><a href={message.imageDataUrl} download={`invoice-ai-image-${new Date().toISOString().slice(0, 10)}.${message.imageMimeType?.split("/")[1]?.replace("jpeg", "jpg") || "png"}`}><Download/> Download image</a></div>}
+              {message.role === "model" && message.text && <div className="ws-assistant-file-actions"><button type="button" onClick={() => downloadAssistantAnswer(message.text, "md")}><FileDown/> Download answer</button>{assistantTableCsv(message.text) && <button type="button" onClick={() => downloadAssistantAnswer(message.text, "csv")}><Download/> Download table CSV</button>}</div>}
+              {message.role === "model" && index === messages.length - 1 && result?.sources?.length > 0 && <AssistantFinancialVisualization result={result} navigate={navigate}/>}
+            </div>
+          </article>)}
+        </div>}
+        <form className="ws-ask ws-assistant-form" onSubmit={event => onAsk(event, attachment)}>
+          <input ref={attachmentInputRef} className="ws-assistant-file-input" type="file" accept={imageMode ? "image/jpeg,image/png,.jpg,.jpeg,.png" : "application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png"} onChange={event => { onAttachmentChange(event.target.files?.[0]); event.target.value = ""; }}/>
+          <textarea aria-label={imageMode ? "Image prompt" : "Your message"} id="financial-assistant-question" value={question} onChange={event => setQuestion(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); if (!busy && !deviceBusy && (question.trim() || attachment)) event.currentTarget.form?.requestSubmit(); } }} placeholder={imageMode ? "Describe the image you want Invoice AI to create…" : "Ask anything about your invoices, payments or business…"}/>
+          {attachment && <div className="ws-assistant-attachment-chip"><Paperclip/><span>{attachment.name}<small>{(attachment.size / 1024 / 1024).toFixed(1)} MB · Attached for this question</small></span><button type="button" onClick={onAttachmentRemove} aria-label="Remove attachment"><X/></button></div>}
+          {attachmentError && <p className="ws-error ws-assistant-file-error">{attachmentError}</p>}
+          <div className="ws-assistant-form-footer"><small>{imageMode ? "Image prompts are sent to Google’s image model. Image generation requires Firebase billing." : "AI answers use your saved financial records. Download answers or tables from the chat."}</small><div className="ws-assistant-submit-actions">
+            <button className="ws-button secondary ws-assistant-attach-button" type="button" disabled={busy || deviceBusy} onClick={() => attachmentInputRef.current?.click()}><Paperclip/> Attach file</button>
+            <button className={`ws-button secondary ws-assistant-image-toggle${imageMode ? " active" : ""}`} type="button" disabled={busy || deviceBusy} aria-pressed={imageMode} onClick={onToggleImageMode}><ImagePlus/> {imageMode ? "Image mode on" : "Generate image"}</button>
+            <button className="ws-button primary" disabled={busy || deviceBusy || (!question.trim() && !attachment)}>{busy ? <><RefreshCw className="ws-spin"/> {imageMode ? "Creating…" : "Thinking…"}</> : imageMode ? <><ImagePlus/> Create image</> : <><Bot/> Send</>}</button>
+            {!imageMode && <button className="ws-button secondary ws-on-device-button" type="button" disabled={busy || deviceBusy || !question.trim() || !!attachment || !deviceConfigured || !deviceSdkReady} onClick={onAskOnDevice} title="General answers on this device; cannot read workspace records or uploaded files">{deviceBusy ? <><RefreshCw className="ws-spin"/> Preparing…</> : <><Shield/> On-device</>}</button>}
+          </div></div>
+        </form>
+      </section>
+      <aside className="ws-assistant-side-panel" aria-label="Assistant tools and workspace data">
+        <section className="ws-card ws-assistant-side-card ws-assistant-data-card">
+          <div className="ws-assistant-side-heading"><Database/><h3>Available data</h3></div>
+          {availableTools.length ? <><p className="ws-assistant-connection"><i/> Connected to your workspace</p><ul>{dataAreas.map(([Icon, label]) => <li key={label}><CheckCircle2/>{label}</li>)}</ul></> : <p className="ws-assistant-side-empty">Workspace data is not available right now. Reload the page to reconnect.</p>}
+        </section>
+        <section className="ws-card ws-assistant-side-card ws-assistant-actions-card">
+          <div className="ws-assistant-side-heading"><Zap/><h3>Quick actions</h3></div>
+          <div className="ws-assistant-quick-actions">{quickActions.map(([Icon, label, path]) => <button type="button" key={path} onClick={() => navigate(path)}><Icon/><span>{label}</span><ArrowRight/></button>)}</div>
+        </section>
+      </aside>
+    </div>
   </div>;
 }
 
@@ -1092,6 +1155,7 @@ export default function Workspace({ path, navigate }) {
   const [data, setData] = useState(null), [error, setErrorState] = useState(""), [toast, setToast] = useState(null), [loading, setLoading] = useState(true), [showForm, setShowForm] = useState(false), [editingRecord, setEditingRecord] = useState(null), [question, setQuestion] = useState(""), [answer, setAnswer] = useState(""), [assistantResult, setAssistantResult] = useState(null), [assistantMessages, setAssistantMessages] = useState([]), [busy, setBusy] = useState(false), [query, setQuery] = useState(""), [invoiceId, setInvoiceId] = useState(""), [invoiceRecord, setInvoiceRecord] = useState(null), [invoicePayments,setInvoicePayments]=useState([]), [invoiceCreditNotes,setInvoiceCreditNotes]=useState([]), [billId,setBillId]=useState(""), [billRecord,setBillRecord]=useState(null), [billPayments,setBillPayments]=useState([]), [pdfUrl,setPdfUrl]=useState(""), [documentId, setDocumentId] = useState(""), [extraction, setExtraction] = useState(null), [batchId, setBatchId] = useState(()=>sessionStorage.getItem("invoice-ai-bank-batch") || ""), [batchDetails, setBatchDetails] = useState(null), [suggestions, setSuggestions] = useState({}), [notificationPrefs, setNotificationPrefs] = useState(()=>JSON.parse(localStorage.getItem(notificationPrefsKey)||"{\"overdue\":true,\"productUpdates\":false}"));
   const [assistantFile, setAssistantFile] = useState(null);
   const [assistantFileError, setAssistantFileError] = useState("");
+  const [assistantImageMode, setAssistantImageMode] = useState(false);
   const handleAssistantFileChange = file => {
     setAssistantFileError("");
     if (!file) return;
@@ -1241,8 +1305,33 @@ export default function Workspace({ path, navigate }) {
   const filtered = useMemo(() => query ? list.filter(row => JSON.stringify(row).toLowerCase().includes(query.toLowerCase())) : data, [data, list, query]);
   const addKind = path === "/app/customers" ? "customer" : path === "/app/suppliers" ? "supplier" : path === "/app/supplier-invoices" ? "bill" : path === "/app/invitations" ? "invite" : path === "/app/invoice-new" || (path === "/app/invoice-detail" && editingRecord?.id) ? "invoice" : "organization";
   const canCreate = ["/app/customers", "/app/suppliers", "/app/supplier-invoices", "/app/invitations", "/app/invoice-new", "/app/organization", "/app/organization-setup"].includes(path);
-  const doAsk = async (e, file = assistantFile) => { e.preventDefault(); const asked = question.trim() || (file ? `Please review the attached file and summarize its relevant financial details. File name: ${file.name}` : ""); if (!asked || busy) return; const history = assistantMessages; setBusy(true); setAssistantResult(null); setQuestion(""); setAssistantMessages(previous => [...previous, { role: "user", text: asked, ...(file ? { attachmentName: file.name } : {}) }, { role: "model", text: "" }].slice(-20)); const updateLastReply = text => setAssistantMessages(previous => previous.map((message, index) => index === previous.length - 1 ? { ...message, text } : message)); try { const r = await askFirebaseAssistant(asked, history, updateLastReply, file); updateLastReply(r.answer); setAssistantResult(r); setAssistantFile(null); } catch (e2) { updateLastReply(e2.message || "Invoice AI could not answer right now. Please try again."); setAssistantResult({ answer: e2.message, sources: [] }); } finally { setBusy(false); } };
-  const startNewAssistantChat = () => { setAssistantMessages([]); setAssistantResult(null); setQuestion(""); setAssistantFile(null); setAssistantFileError(""); };
+  const doAsk = async (e, file = assistantFile) => {
+    e.preventDefault();
+    const useImageMode = assistantImageMode;
+    const asked = question.trim() || (file && !useImageMode ? `Please review the attached file and summarize its relevant financial details. File name: ${file.name}` : "");
+    if (!asked || busy) return;
+    if (useImageMode && file && !["image/jpeg", "image/png"].includes(file.type)) { setAssistantFileError("Image generation can edit a JPG or PNG reference, not a PDF. Remove the PDF or switch off Generate image."); return; }
+    const history = assistantMessages;
+    setBusy(true); setAssistantResult(null); setQuestion(""); setAssistantFileError("");
+    setAssistantMessages(previous => [...previous, { role: "user", text: asked, ...(file ? { attachmentName: file.name } : {}) }, { role: "model", text: "" }].slice(-20));
+    const updateLastReply = (text, extra = {}) => setAssistantMessages(previous => previous.map((message, index) => index === previous.length - 1 ? { ...message, text, ...extra } : message));
+    try {
+      if (useImageMode) {
+        const generated = await generateAssistantImage(asked, file);
+        updateLastReply(generated.text, { imageDataUrl: generated.imageDataUrl, imageAlt: asked, imageMimeType: generated.mimeType });
+        setAssistantResult({ answer: generated.text, sources: [], mode: "image" });
+      } else {
+        const response = await askFirebaseAssistant(asked, history, updateLastReply, file);
+        updateLastReply(response.answer); setAssistantResult(response);
+      }
+      setAssistantFile(null);
+    } catch (error) {
+      const friendly = friendlyAssistantError(error, useImageMode ? "image" : "chat");
+      updateLastReply(friendly);
+      setAssistantResult({ answer: friendly, sources: [] });
+    } finally { setBusy(false); }
+  };
+  const startNewAssistantChat = () => { setAssistantMessages([]); setAssistantResult(null); setQuestion(""); setAssistantFile(null); setAssistantFileError(""); setAssistantImageMode(false); };
   const doAskOnDevice = async () => {
     if (!question.trim()) return;
     setDeviceAssistantBusy(true); setDeviceAssistantProgress(0); setAssistantResult(null);
@@ -1281,7 +1370,7 @@ export default function Workspace({ path, navigate }) {
   const logOut = async () => { const refreshToken = sessionStorage.getItem("invoice-ai-refresh"); try { if (refreshToken) await api("/api/auth/logout", { method: "POST", body: { refreshToken } }); } catch {} clearSession(); navigate("/login"); };
   const visibleGroups = groups.filter(([group]) => !(accountType === "Freelancer" && group === "Business setup · optional")).map(([group, items]) => [group, accountType === "Freelancer" ? items.filter(([url]) => !["/app/team", "/app/invitations"].includes(url)) : items]);
   const currentGroup = visibleGroups.find(([, items]) => items.some(([url]) => url === path))?.[0];
-  return <div className={`workspace${mobileNavOpen ? " ws-mobile-nav-open" : ""}`}>{mobileNavOpen && <button className="ws-sidebar-backdrop" type="button" aria-label="Close navigation menu" onClick={() => setMobileNavOpen(false)}/>}<aside className="ws-sidebar" id="workspace-navigation"><button className="ws-sidebar-close" type="button" aria-label="Close navigation" onClick={() => setMobileNavOpen(false)}><X/></button><a className="ws-brand" href="/app" onClick={e => { e.preventDefault(); setMobileNavOpen(false); navigate("/app"); }}><span className="ws-brand-icon"><FileText/></span><span>Invoice <i>AI</i><small>Simple finance workspace</small></span></a><div className="ws-org"><span><LayoutDashboard/></span><div><b>Your workspace</b><small>{accountType === "Freelancer" ? "Freelancer account" : accountType === "Organization" ? "Organization account" : "Your invoices and finances"}</small></div></div><nav aria-label="Workspace pages"><button className={`ws-ai-sidebar-link${path === "/app/assistant" ? " active" : ""}`} aria-current={path === "/app/assistant" ? "page" : undefined} onClick={() => { setMobileNavOpen(false); navigate("/app/assistant"); }}><span className="ws-ai-sidebar-icon"><Sparkles/></span><span><b>Ask Invoice AI</b><small>Ask about your finances</small></span><ArrowRight/></button>{visibleGroups.map(([group, items]) => <details className="ws-nav-group" key={group} open={group === currentGroup}><summary className="ws-group-title">{group}<ChevronDown/></summary><div className="ws-nav-items">{items.map(([url, label, Icon]) => <button key={url} className={path === url ? "active" : ""} onClick={() => { setMobileNavOpen(false); navigate(url); }}><Icon/>{label}</button>)}</div></details>)}</nav><button className="ws-logout" onClick={logOut}><LogOut/> Sign out</button></aside><main className="ws-main"><header className="ws-topbar"><div className="ws-breadcrumb"><button className="ws-mobile-nav-toggle" type="button" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded={mobileNavOpen} onClick={() => setMobileNavOpen(true)}><Menu/></button><span className="ws-breadcrumb-home"><Home/></span><span>Your workspace</span><b>›</b><strong>{info[0]}</strong></div><div><button className="ws-ai-top-link" onClick={() => { setMobileNavOpen(false); navigate("/app/assistant"); }}><Sparkles/><span>Ask Invoice AI</span></button><button className="ws-icon-btn" aria-label="Alerts" title="Alerts" onClick={() => navigate("/app/notifications")}><Bell/></button><span className="ws-avatar" aria-label="Invoice AI account">IA</span></div></header><section className="ws-content"><div className={`ws-heading${["/app","/app/payments","/app/recurring-invoices","/app/bank-import","/app/bank-reconciliation","/app/payment-account","/app/upload-supplier-invoice","/app/billing/return"].includes(path) ? " ws-heading-hidden" : ""}`}><div><p>YOUR WORKSPACE</p><h1>{info[0]}</h1><span>{pageDescriptions[path] || "Manage your business details and activity."}</span></div><div className="ws-actions">{["/app/customers","/app/suppliers"].includes(path) && <button className="ws-button secondary" onClick={()=>setShowArchived(!showArchived)}>{showArchived?"Hide archived":"Show archived"}</button>}{data !== null && <button className="ws-button secondary" onClick={()=>{refresh();if(path==="/app/reports")loadReportExtras(data?.period?.from,data?.period?.to)}}><RefreshCw/> Refresh</button>}{["/app/customers","/app/invoices"].includes(path) && <><button className="ws-button secondary" disabled={busy} onClick={() => exportData("csv")}>Export CSV</button><button className="ws-button secondary" disabled={busy} onClick={() => exportData("xlsx")}>Export Excel</button></>}{canCreate && <button className="ws-button primary" onClick={() => setShowForm(!showForm)}><Plus/> {path === "/app/invoice-new" ? "Create invoice" : path === "/app/supplier-invoices" ? "Add supplier bill" : path === "/app/invitations" ? "Invite a teammate" : path === "/app/organization" || path === "/app/organization-setup" ? "Edit business details" : `Add ${path === "/app/customers" ? "customer" : "supplier"}`}</button>}</div></div>
+  return <div className={`workspace${mobileNavOpen ? " ws-mobile-nav-open" : ""}`}>{mobileNavOpen && <button className="ws-sidebar-backdrop" type="button" aria-label="Close navigation menu" onClick={() => setMobileNavOpen(false)}/>}<aside className="ws-sidebar" id="workspace-navigation"><button className="ws-sidebar-close" type="button" aria-label="Close navigation" onClick={() => setMobileNavOpen(false)}><X/></button><a className="ws-brand" href="/app" onClick={e => { e.preventDefault(); setMobileNavOpen(false); navigate("/app"); }}><span className="ws-brand-icon"><FileText/></span><span>Invoice <i>AI</i><small>Simple finance workspace</small></span></a><div className="ws-org"><span><LayoutDashboard/></span><div><b>Your workspace</b><small>{accountType === "Freelancer" ? "Freelancer account" : accountType === "Organization" ? "Organization account" : "Your invoices and finances"}</small></div></div><nav aria-label="Workspace pages"><button className={`ws-ai-sidebar-link${path === "/app/assistant" ? " active" : ""}`} aria-current={path === "/app/assistant" ? "page" : undefined} onClick={() => { setMobileNavOpen(false); navigate("/app/assistant"); }}><span className="ws-ai-sidebar-icon"><Sparkles/></span><span><b>Ask Invoice AI</b><small>Ask about your finances</small></span><ArrowRight/></button>{visibleGroups.map(([group, items]) => <details className="ws-nav-group" key={group} open={group === currentGroup}><summary className="ws-group-title">{group}<ChevronDown/></summary><div className="ws-nav-items">{items.map(([url, label, Icon]) => <button key={url} className={path === url ? "active" : ""} onClick={() => { setMobileNavOpen(false); navigate(url); }}><Icon/>{label}</button>)}</div></details>)}</nav><button className="ws-logout" onClick={logOut}><LogOut/> Sign out</button></aside><main className="ws-main"><header className="ws-topbar"><div className="ws-breadcrumb"><button className="ws-mobile-nav-toggle" type="button" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded={mobileNavOpen} onClick={() => setMobileNavOpen(true)}><Menu/></button><span className="ws-breadcrumb-home"><Home/></span><span>Your workspace</span><b>›</b><strong>{info[0]}</strong></div><div><button className="ws-ai-top-link" onClick={() => { setMobileNavOpen(false); navigate("/app/assistant"); }}><Sparkles/><span>Ask Invoice AI</span></button><button className="ws-icon-btn" aria-label="Alerts" title="Alerts" onClick={() => navigate("/app/notifications")}><Bell/></button><span className="ws-avatar" aria-label="Invoice AI account">IA</span></div></header><section className="ws-content"><div className={`ws-heading${["/app","/app/payments","/app/recurring-invoices","/app/bank-import","/app/bank-reconciliation","/app/payment-account","/app/upload-supplier-invoice","/app/billing/return","/app/assistant"].includes(path) ? " ws-heading-hidden" : ""}`}><div><p>YOUR WORKSPACE</p><h1>{info[0]}</h1><span>{pageDescriptions[path] || "Manage your business details and activity."}</span></div><div className="ws-actions">{["/app/customers","/app/suppliers"].includes(path) && <button className="ws-button secondary" onClick={()=>setShowArchived(!showArchived)}>{showArchived?"Hide archived":"Show archived"}</button>}{data !== null && <button className="ws-button secondary" onClick={()=>{refresh();if(path==="/app/reports")loadReportExtras(data?.period?.from,data?.period?.to)}}><RefreshCw/> Refresh</button>}{["/app/customers","/app/invoices"].includes(path) && <><button className="ws-button secondary" disabled={busy} onClick={() => exportData("csv")}>Export CSV</button><button className="ws-button secondary" disabled={busy} onClick={() => exportData("xlsx")}>Export Excel</button></>}{canCreate && <button className="ws-button primary" onClick={() => setShowForm(!showForm)}><Plus/> {path === "/app/invoice-new" ? "Create invoice" : path === "/app/supplier-invoices" ? "Add supplier bill" : path === "/app/invitations" ? "Invite a teammate" : path === "/app/organization" || path === "/app/organization-setup" ? "Edit business details" : `Add ${path === "/app/customers" ? "customer" : "supplier"}`}</button>}</div></div>
       {!isOnline && <div className="ws-connectivity-banner" role="status"><span aria-hidden="true"/><div><b>You’re offline</b><small>Some workspace features need internet. New invoices can be saved in this tab and submitted when you reconnect.</small></div></div>}
       {error && <Toast type="error" title="Something needs your attention" onClose={() => setError("")}>{error}</Toast>}
       {toast && <Toast type={toast.type} title={toast.title} onClose={() => setToast(null)}>{toast.message}</Toast>}
@@ -1304,7 +1393,7 @@ export default function Workspace({ path, navigate }) {
           </>;
         })()}
       </section>}
-      {path === "/app/assistant" && <FinancialAssistantPage tools={data} question={question} setQuestion={setQuestion} result={assistantResult} busy={busy} onAsk={doAsk} onNewChat={startNewAssistantChat} messages={assistantMessages} deviceBusy={deviceAssistantBusy} deviceProgress={deviceAssistantProgress} onAskOnDevice={doAskOnDevice} deviceConfigured={firebaseOnDeviceConfigured()} attachment={assistantFile} attachmentError={assistantFileError} onAttachmentChange={handleAssistantFileChange} onAttachmentRemove={()=>{setAssistantFile(null);setAssistantFileError("")}} navigate={navigate}/>}
+      {path === "/app/assistant" && <FinancialAssistantPage tools={data} question={question} setQuestion={setQuestion} result={assistantResult} busy={busy} onAsk={doAsk} onNewChat={startNewAssistantChat} messages={assistantMessages} deviceBusy={deviceAssistantBusy} deviceProgress={deviceAssistantProgress} onAskOnDevice={doAskOnDevice} deviceConfigured={firebaseOnDeviceConfigured()} attachment={assistantFile} attachmentError={assistantFileError} onAttachmentChange={handleAssistantFileChange} onAttachmentRemove={()=>{setAssistantFile(null);setAssistantFileError("")}} imageMode={assistantImageMode} onToggleImageMode={()=>setAssistantImageMode(value=>!value)} navigate={navigate}/>}
       {path === "/app/upload-supplier-invoice" ? <SupplierInvoiceUpload busy={busy} onUpload={doUpload}/> : null}
       {path === "/app/bank-import" && <section className="ws-money-page">
         <div className="ws-card ws-money-hero compact"><div className="ws-money-hero-icon"><Upload/></div><div className="ws-money-hero-copy"><span className="ws-money-eyebrow">BANK STATEMENTS</span><h2>Bring your bank activity into Invoice AI</h2><p>Upload a statement file and we’ll help match its deposits and withdrawals to the payments you recorded.</p></div></div>

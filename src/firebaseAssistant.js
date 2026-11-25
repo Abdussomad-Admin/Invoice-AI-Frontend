@@ -3,8 +3,42 @@ import { getFirebaseRuntime } from "./firebaseRuntime";
 
 const MODEL = "gemini-3.8-flash";
 const FALLBACK_MODEL = "gemini-3.5-flash-lite";
+const IMAGE_MODEL = "gemini-nano-banana-2.1";
 const MAX_TOOL_CALLS_PER_ROUND = 4;
 const MAX_EXTRACTION_FILE_BYTES = 5 * 1024 * 1024;
+
+export function friendlyAssistantError(error, mode = "chat") {
+  const message = String(error?.message || error || "").trim();
+  const lower = message.toLowerCase();
+  if (!message) return mode === "image"
+    ? "Image creation failed. Please try again later."
+    : "Invoice AI couldn’t answer right now. Please try again later.";
+  if (/describe the image|keep image prompts|image editing supports|reference image is larger|selected invoice could not be read|selected invoice could not be prepared/i.test(lower)) return message;
+  if (/session has expired|please log in again|sign in again/.test(lower)) return "Your session has expired. Please sign in again.";
+  if (/you don.t have permission|not have access|unauthorized|forbidden/.test(lower)) return "You don’t have access to this information. Please contact your workspace admin.";
+  if (/no image was generated|did not return an image|no images were generated/.test(lower)) return "I couldn’t create an image from that prompt. Try changing the description and try again.";
+  if (/did not return an answer|no answer|try rephrasing|rephrasing your question/.test(lower)) return "I couldn’t put together an answer for that. Try asking in a different way.";
+  if (/failed to fetch|networkerror|network request failed|load failed|err_network|internet connection|offline|could not connect|connection (?:was )?lost/i.test(lower)) {
+    return "Connection problem. Check your internet and try again.";
+  }
+  if (/timeout|timed out|deadline exceeded|taking too long/i.test(lower)) {
+    return mode === "image"
+      ? "Image creation is taking too long. Please try again in a moment."
+      : "Invoice AI took too long to respond. Please try again in a moment.";
+  }
+  if (/\b(429|500|502|503|504)\b|high demand|overload|resource exhausted|temporarily unavailable|quota exceeded|rate limit/i.test(lower)) {
+    return "Invoice AI is busy right now. Please try again shortly.";
+  }
+  if (/billing|payment required|permission_denied|permission denied|app check|appcheck|attestation|api key|not configured|not enabled|model.*(?:not found|unsupported)|unsupported model/i.test(lower)) {
+    return mode === "image"
+      ? "Image creation isn’t available right now. Please check the Firebase image-generation setup and try again later."
+      : "Invoice AI isn’t available right now. Please try again later.";
+  }
+  if (/file|pdf|jpg|jpeg|png|attach/i.test(lower) && message.length < 180) return message;
+  return mode === "image"
+    ? "Image creation failed. Please try again later."
+    : "Invoice AI couldn’t answer right now. Please try again later.";
+}
 
 const assistantSystemInstruction = session => `
 You are Invoice AI's financial assistant. Answer questions about one business: ${session.businessName || "the user's workspace"}.
@@ -27,6 +61,7 @@ Rules:
 13. For profit predictions, use get_profit_outlook and explain that it is based on the previous three complete months, not a guarantee. Keep it separate from cash-flow forecasts and actual profit.
 14. Do not claim to have retrieved records unless a tool returned them successfully.
 15. When a user asks for a comparison or a list of several records with the same fields, use a compact Markdown table when it improves readability. Do not use a table for a single figure or a short explanation.
+16. When a user asks for a downloadable table or spreadsheet, return the requested data as a simple Markdown table with a header row so the app can export it as CSV. Do not invent records to fill gaps.
 `.trim();
 
 function toFirebaseFunction(tool, Schema, SchemaType) {
@@ -63,7 +98,7 @@ async function runFinancialTool(call, allowedNames) {
     });
     return { result: result.data, source: result, succeeded: true };
   } catch (error) {
-    return { result: { error: error.message || "This financial data could not be loaded." }, succeeded: false };
+    return { result: { error: "These records are unavailable right now. Please try again later." }, succeeded: false };
   }
 }
 
@@ -158,6 +193,40 @@ export async function askFirebaseAssistant(question, conversationHistory = [], o
   const answer = response.response.text?.()?.trim();
   if (!answer) throw new Error("The AI did not return an answer. Please try rephrasing your question.");
   return { answer, sources, notice: session.notice || "AI answers use the workspace records you can access. Check important figures before acting on them." };
+}
+
+export async function generateAssistantImage(prompt, referenceImage = null) {
+  const description = String(prompt || "").trim();
+  if (!description) throw new Error("Describe the image you want Invoice AI to create.");
+  if (description.length > 2000) throw new Error("Keep image prompts under 2,000 characters.");
+  if (referenceImage && !["image/jpeg", "image/png"].includes(referenceImage.type)) {
+    throw new Error("Image editing supports JPG and PNG references. Remove the PDF or attach an image instead.");
+  }
+  if (referenceImage && referenceImage.size > MAX_EXTRACTION_FILE_BYTES) {
+    throw new Error("This reference image is larger than the supported 5 MB limit.");
+  }
+
+  const runtime = await getFirebaseRuntime();
+  const model = runtime.getGenerativeModel(runtime.ai, {
+    model: IMAGE_MODEL,
+    generationConfig: {
+      responseModalities: [runtime.ResponseModality.TEXT, runtime.ResponseModality.IMAGE],
+      imageConfig: { aspectRatio: "1:1", imageSize: "1K" }
+    }
+  });
+  const promptParts = [description];
+  if (referenceImage) promptParts.push(await fileAsInlineData(referenceImage));
+  const result = await model.generateContent(promptParts);
+  const parts = result.response.candidates?.flatMap(candidate => candidate.content?.parts || []) || [];
+  const imagePart = parts.find(part => part.inlineData?.data && String(part.inlineData.mimeType || "").startsWith("image/"));
+  if (!imagePart) {
+    throw new Error("No image was generated. Please revise the prompt and try again.");
+  }
+  return {
+    imageDataUrl: `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`,
+    text: parts.map(part => part.text || "").filter(Boolean).join("\n").trim() || "Here’s the image I created.",
+    mimeType: imagePart.inlineData.mimeType
+  };
 }
 
 function fileAsInlineData(file) {
