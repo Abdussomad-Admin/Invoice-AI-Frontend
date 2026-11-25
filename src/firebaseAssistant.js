@@ -77,7 +77,9 @@ async function sendMessageStream(chat, request, onText) {
       onText?.(text);
     }
   }
-  return result.response;
+  // sendMessageStream resolves directly to EnhancedGenerateContentResponse,
+  // while the non-streaming SDK wraps it as `{ response }`. Keep one shape here.
+  return { response: await result.response };
 }
 
 export async function askFirebaseAssistant(question, conversationHistory = [], onText, file = null) {
