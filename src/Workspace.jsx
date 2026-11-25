@@ -6,7 +6,7 @@ import { askFirebaseAssistant, extractSupplierBillWithFirebase, friendlyAssistan
 import Toast from "./Toast";
 import RecurringInvoices from "./RecurringInvoices";
 import WorkspaceTour, { TOUR_KEY } from "./WorkspaceTour";
-import { askOnDevice, checkOnDeviceAvailability, firebaseOnDeviceConfigured, preloadOnDeviceSdk } from "./firebaseOnDeviceAssistant";
+import { askFirebaseHybrid, askOnDevice, checkOnDeviceAvailability, firebaseOnDeviceConfigured, isWorkspaceDataQuestion, preloadOnDeviceSdk } from "./firebaseOnDeviceAssistant";
 import "./workspace.css";
 import "./dashboard-overrides.css";
 import "./assistant-page.css";
@@ -1019,7 +1019,7 @@ function FinancialAssistantPage({ tools, question, setQuestion, result, busy, on
             <span className="ws-chat-avatar">{message.role === "user" ? "You" : <Sparkles/>}</span>
             <div>
               <b>{message.role === "user" ? "You" : "Invoice AI"}</b>
-              {message.role === "model" ? (message.text ? <><AssistantResponseText text={message.text}/>{message.notice && <small className="ws-assistant-answer-note">{message.notice}</small>}</> : <p className="ws-assistant-thinking">{deviceBusy ? `Preparing the on-device model${deviceProgress > 0 ? ` · ${deviceProgress}%` : "…"}` : imageMode ? "Creating your image" : "Checking your records"}<span>{deviceBusy && deviceProgress > 0 ? "" : "…"}</span></p>) : <>
+              {message.role === "model" ? (message.text ? <><AssistantResponseText text={message.text}/>{message.modeLabel && <small className="ws-assistant-run-mode">{message.modeLabel}</small>}{message.notice && <small className="ws-assistant-answer-note">{message.notice}</small>}</> : <p className="ws-assistant-thinking">{deviceBusy ? `Preparing the on-device model${deviceProgress > 0 ? ` · ${deviceProgress}%` : "…"}` : message.loadingLabel || (imageMode ? "Creating your image" : "Checking your records")}<span>{deviceBusy && deviceProgress > 0 ? "" : "…"}</span></p>) : <>
                 <p>{message.text}</p>
                 {message.attachmentName && <span className="ws-assistant-message-file"><Paperclip/>{message.attachmentName}</span>}
               </>}
@@ -1034,7 +1034,7 @@ function FinancialAssistantPage({ tools, question, setQuestion, result, busy, on
           <textarea aria-label={imageMode ? "Image prompt" : "Your message"} id="financial-assistant-question" value={question} onChange={event => setQuestion(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); if (!busy && !deviceBusy && (question.trim() || attachment)) event.currentTarget.form?.requestSubmit(); } }} placeholder={imageMode ? "Describe the image you want Invoice AI to create…" : "Ask anything about your invoices, payments or business…"}/>
           {attachment && <div className="ws-assistant-attachment-chip"><Paperclip/><span>{attachment.name}<small>{(attachment.size / 1024 / 1024).toFixed(1)} MB · Attached for this question</small></span><button type="button" onClick={onAttachmentRemove} aria-label="Remove attachment"><X/></button></div>}
           {attachmentError && <p className="ws-error ws-assistant-file-error">{attachmentError}</p>}
-          <div className="ws-assistant-form-footer"><small>{imageMode ? "Image prompts are sent to Google’s image model. Image generation requires Firebase billing." : "AI answers use your saved financial records. Download answers or tables from the chat."}</small><div className="ws-assistant-submit-actions">
+          <div className="ws-assistant-form-footer"><small>{imageMode ? "Image prompts are sent to Google’s image model. Image generation requires Firebase billing." : "General questions try this device first, then cloud fallback. Record questions and files use permission-checked cloud tools."}</small><div className="ws-assistant-submit-actions">
             <button className="ws-button secondary ws-assistant-attach-button" type="button" disabled={busy || deviceBusy} onClick={() => attachmentInputRef.current?.click()}><Paperclip/> Attach file</button>
             <button className={`ws-button secondary ws-assistant-image-toggle${imageMode ? " active" : ""}`} type="button" disabled={busy || deviceBusy} aria-pressed={imageMode} onClick={onToggleImageMode}><ImagePlus/> {imageMode ? "Image mode on" : "Generate image"}</button>
             <button className="ws-button primary" disabled={busy || deviceBusy || (!question.trim() && !attachment)}>{busy ? <><RefreshCw className="ws-spin"/> {imageMode ? "Creating…" : "Thinking…"}</> : imageMode ? <><ImagePlus/> Create image</> : <><Bot/> Send</>}</button>
@@ -1347,9 +1347,11 @@ export default function Workspace({ path, navigate }) {
     const asked = question.trim() || (file && !useImageMode ? `Please review the attached file and summarize its relevant financial details. File name: ${file.name}` : "");
     if (!asked || busy) return;
     if (useImageMode && file && !["image/jpeg", "image/png"].includes(file.type)) { setAssistantFileError("Image generation can edit a JPG or PNG reference, not a PDF. Remove the PDF or switch off Generate image."); return; }
+    const useHybridMode = !useImageMode && !file && !isWorkspaceDataQuestion(asked);
     const history = assistantMessages;
     setBusy(true); setAssistantResult(null); setQuestion(""); setAssistantFileError("");
-    setAssistantMessages(previous => [...previous, { role: "user", text: asked, ...(file ? { attachmentName: file.name } : {}) }, { role: "model", text: "" }].slice(-20));
+    if (useHybridMode) { setDeviceAssistantBusy(true); setDeviceAssistantProgress(0); }
+    setAssistantMessages(previous => [...previous, { role: "user", text: asked, ...(file ? { attachmentName: file.name } : {}) }, { role: "model", text: "", ...(useHybridMode ? { loadingLabel: "Trying Chrome’s local model first; cloud fallback is available" } : {}) }].slice(-20));
     const updateLastReply = (text, extra = {}) => setAssistantMessages(previous => previous.map((message, index) => index === previous.length - 1 ? { ...message, text, ...extra } : message));
     try {
       if (useImageMode) {
@@ -1357,15 +1359,29 @@ export default function Workspace({ path, navigate }) {
         updateLastReply(generated.text, { imageDataUrl: generated.imageDataUrl, imageAlt: asked, imageMimeType: generated.mimeType });
         setAssistantResult({ answer: generated.text, sources: [], mode: "image" });
       } else {
-        const response = await askFirebaseAssistant(asked, history, updateLastReply, file);
-        updateLastReply(response.answer); setAssistantResult(response);
+        if (useHybridMode) {
+          const response = await askFirebaseHybrid(asked, updateLastReply, setDeviceAssistantProgress);
+          updateLastReply(response.answer, { modeLabel: response.mode === "on-device" ? "ANSWERED ON DEVICE" : "CLOUD FALLBACK", notice: response.notice });
+          setAssistantResult(response);
+        } else {
+          const response = await askFirebaseAssistant(asked, history, updateLastReply, file);
+          updateLastReply(response.answer, { notice: response.notice, modeLabel: "WORKSPACE ANSWER · SECURE CLOUD" }); setAssistantResult(response);
+        }
       }
       setAssistantFile(null);
     } catch (error) {
-      const friendly = friendlyAssistantError(error, useImageMode ? "image" : "chat");
-      updateLastReply(friendly);
+      const friendly = useHybridMode && !navigator.onLine
+        ? "You’re offline and Chrome’s local model isn’t ready yet. Reconnect once to prepare it, then you can ask general questions offline."
+        : friendlyAssistantError(error, useImageMode ? "image" : "chat");
+      updateLastReply(friendly, useHybridMode ? { modeLabel: "HYBRID ASSISTANT", notice: "The local model could not answer and no cloud request was made." } : {});
       setAssistantResult({ answer: friendly, sources: [] });
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+      if (useHybridMode) {
+        setDeviceAssistantBusy(false);
+        checkOnDeviceAvailability().then(setDeviceAvailability).catch(() => setDeviceAvailability("unknown"));
+      }
+    }
   };
   const startNewAssistantChat = () => { setAssistantMessages([]); setAssistantResult(null); setQuestion(""); setAssistantFile(null); setAssistantFileError(""); setAssistantImageMode(false); };
   const doAskOnDevice = async () => {
@@ -1378,7 +1394,7 @@ export default function Workspace({ path, navigate }) {
     try {
       const answer = await askOnDevice(asked, setDeviceAssistantProgress);
       const notice = "Generated locally on this device. This answer cannot see your saved financial records.";
-      updateLastReply(answer, { notice });
+      updateLastReply(answer, { modeLabel: "ANSWERED ON DEVICE", notice });
       setAssistantResult({ answer, sources: [], mode: "on-device", notice });
     } catch (e) {
       const message = String(e?.message || "");
@@ -1393,7 +1409,7 @@ export default function Workspace({ path, navigate }) {
           : !navigator.onLine
             ? "The local model is not ready in this page yet. Connect once, prepare it, and then use on-device help offline while this page stays open."
             : "The on-device model could not start. Check that Chrome’s on-device AI model is available, then try again.";
-      updateLastReply(friendly, { notice: "Your question was not sent to Invoice AI’s financial-record tools." });
+      updateLastReply(friendly, { modeLabel: "ON-DEVICE ONLY", notice: "Your question was not sent to Invoice AI’s financial-record tools." });
       setAssistantResult({ answer: friendly, sources: [], mode: "on-device", notice: "Your question was not sent to Invoice AI’s financial-record tools." });
     } finally {
       setDeviceAssistantBusy(false);

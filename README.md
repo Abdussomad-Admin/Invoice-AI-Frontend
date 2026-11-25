@@ -2,6 +2,10 @@
 
 React + Vite frontend for the Invoice AI API. The cloud AI assistant and supplier-bill extraction use **Firebase AI Logic with the Gemini Developer API** from the web app.
 
+## Complete source code
+
+This repository includes the ASP.NET Core API source in [`backend-source/`](backend-source/) so judges can inspect and run the complete application from one public repository. The standalone canonical backend repository is [InvoiceAIBackend](https://github.com/Abdussomad-Admin/InvoiceAIBackend); the canonical frontend repository is [Invoice-AI-Frontend](https://github.com/Abdussomad-Admin/Invoice-AI-Frontend). The project is licensed under Apache 2.0.
+
 ## Run locally
 
 ```powershell
@@ -17,7 +21,9 @@ During local development, Vite proxies `/api` calls to the hosted backend. Produ
 
 ## Firebase AI Logic
 
-The main **Ask Invoice AI** and dashboard insight flows call Firebase AI Logic in the browser using `gemini-3.8-flash`. The model can request only the read-only financial tools returned for the signed-in user's role. Each tool call goes through the Invoice AI API, which rechecks the user's JWT, workspace membership, permission, and rate limit before returning tenant-scoped records. Financial tool results are sent to Gemini so it can explain them; the model does not get direct database access or write permissions.
+The main **Ask Invoice AI** flow uses Firebase AI Logic hybrid inference for general bookkeeping and business-help questions: it prefers Chrome's on-device model, then falls back to cloud Gemini when the local model is unavailable. Each reply labels where inference ran. Questions that ask about a user's saved invoices, payments, customers, supplier bills, or business figures use the cloud Gemini assistant and its read-only financial tools instead. Each tool call goes through the Invoice AI API, which rechecks the signed-in user's JWT, workspace membership, permission, and rate limit before returning tenant-scoped records. Financial tool results are sent to Gemini so it can explain them; the model does not get direct database access or write permissions.
+
+The separate **On-device** action is local-only: it never falls back to cloud and cannot access workspace records. It is useful when the user explicitly wants general help to stay on the device, including offline use after Chrome has downloaded its model. General questions use a single-turn hybrid prompt for local-first/cloud-fallback behavior; workspace-record questions keep the existing multi-turn, tool-enabled cloud assistant. Uploaded files and image generation use cloud features because Chrome's local model does not support the app's financial tools, PDFs, or image generation.
 
 Supplier-bill reading also runs in the browser through Firebase AI Logic. The uploaded document is sent only after the user starts extraction. Invoice AI's API checks the user's permission and plan allowance before the Firebase request, then validates the extracted values, checks suppliers and duplicates, and saves a review record. A person must still review the result; AI never finalizes a bill.
 
@@ -30,6 +36,15 @@ To configure it:
 3. Register the production web app in Firebase App Check with the reCAPTCHA Enterprise provider. Set `VITE_FIREBASE_APPCHECK_SITE_KEY` to that provider's site key in Vercel. Do not use a debug token in production.
 4. For localhost, the app initializes Firebase's App Check debug provider. Copy its generated debug token from the browser console and safelist that token in Firebase App Check.
 
-The model needs an internet connection. Firebase App Check is required for the production AI requests. The separate **On-device help** option remains available on supported desktop Chrome for general, non-record-specific questions; once its model has been prepared, it may work offline while the current page remains open. It cannot read workspace data or replace the Firebase cloud assistant.
+Cloud model requests need an internet connection. Firebase App Check is required for production cloud requests. Hybrid on-device inference requires desktop Chrome 139 or newer, a supported device, and Chrome's Prompt API model. The first model download needs an internet connection and may take several minutes. If the local model is unavailable, general questions automatically fall back to cloud Gemini; the reply indicates that the question was sent online. Once prepared, local-only questions can work offline while the page remains open. Workspace records always use the permission-checked cloud assistant.
+
+### Hybrid inference demo path
+
+1. Open the deployed app in supported desktop Chrome while online and sign in.
+2. Ask a general question such as **“How can I politely remind a customer about a late invoice?”** The reply shows whether Chrome's local model answered or Firebase AI Logic used cloud fallback.
+3. Ask **“Which invoices are overdue?”** to demonstrate the separate cloud path that checks only records available to the signed-in user's role.
+4. Use **On-device** for a local-only general question. After preparing the model, disconnect the network while keeping the page open and repeat the question to demonstrate offline inference.
+
+The project supports the Web/Chrome platform. For contest submission, include the hosted demo, this source repository, an English description of what was built during the contest, and a public YouTube demo video under three minutes.
 
 Review Firebase's current [AI Logic setup](https://firebase.google.com/docs/ai-logic/get-started?platform=web), [function-calling guide](https://firebase.google.com/docs/ai-logic/function-calling), [App Check guide](https://firebase.google.com/docs/ai-logic/app-check), and [pricing and data-use details](https://firebase.google.com/docs/ai-logic/pricing?api=dev) before production use.
