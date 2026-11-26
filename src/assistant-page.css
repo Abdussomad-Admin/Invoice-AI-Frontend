@@ -361,3 +361,52 @@
 @media (prefers-reduced-motion: reduce) {
   .ws-assistant-quick-actions button { transition: none; }
 }
+
+/* Keep the composer compact and its controls together at normal desktop widths. */
+.ws-assistant-page .ws-assistant-card { min-height: 450px; }
+.ws-assistant-page .ws-assistant-conversation { min-height: 230px; }
+.ws-assistant-page .ws-assistant-empty-chat { min-height: 170px; margin-top: 14px; }
+.ws-assistant-page .ws-assistant-form { gap: 7px; padding: 10px 12px; }
+.ws-assistant-page .ws-assistant-form textarea { min-height: 48px; }
+.ws-assistant-page .ws-assistant-form-footer {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  gap: 10px;
+}
+.ws-assistant-page .ws-assistant-form-footer > small {
+  max-width: 460px;
+  color: #665d7c;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.ws-assistant-page .ws-assistant-submit-actions { flex-wrap: nowrap; gap: 7px; }
+.ws-assistant-page .ws-assistant-form-footer .ws-button {
+  min-height: 38px;
+  height: 38px;
+  padding: 0 10px;
+  gap: 6px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.ws-assistant-page .ws-assistant-form-footer .ws-button svg { width: 14px; height: 14px; }
+.ws-assistant-page .ws-assistant-device-status {
+  margin-top: 1px;
+  color: #6e6582;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+@media (max-width: 960px) {
+  .ws-assistant-page .ws-assistant-form-footer { grid-template-columns: 1fr; }
+  .ws-assistant-page .ws-assistant-submit-actions { flex-wrap: wrap; justify-content: flex-start; }
+}
+
+@media (max-width: 600px) {
+  .ws-assistant-page .ws-assistant-card { min-height: 410px; }
+  .ws-assistant-page .ws-assistant-conversation { min-height: 205px; }
+  .ws-assistant-page .ws-assistant-empty-chat { min-height: 155px; }
+  .ws-assistant-page .ws-assistant-form-footer { display: grid; grid-template-columns: 1fr; }
+  .ws-assistant-page .ws-assistant-form-footer > small { display: block; max-width: 100%; }
+  .ws-assistant-page .ws-assistant-submit-actions { width: 100%; }
+  .ws-assistant-page .ws-assistant-form-footer .ws-button { flex: 1 1 auto; }
+}
