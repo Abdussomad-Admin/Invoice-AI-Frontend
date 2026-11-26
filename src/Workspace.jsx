@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDownLeft, ArrowLeft, ArrowRight, ArrowUpRight, Bell, Bot, Building2, CalendarDays, ChartNoAxesCombined, CheckCircle2, ChevronDown, CircleDollarSign, CircleHelp, Clock3, CreditCard, Database, Download, FileDown, FileText, Home, ImagePlus, Landmark, LayoutDashboard, LogOut, Menu, Paperclip, Plus, RefreshCw, Repeat, Search, Settings, Share2, Shield, Sparkles, Upload, Users, WalletCards, X, Zap } from "lucide-react";
+import { ArrowDownLeft, ArrowLeft, ArrowRight, ArrowUpRight, Bell, Bot, Building2, CalendarDays, ChartNoAxesCombined, CheckCircle2, ChevronDown, CircleDollarSign, CircleHelp, Clock3, CreditCard, Database, Download, FileDown, FileText, Home, ImagePlus, Landmark, LayoutDashboard, LogOut, Menu, Paperclip, Plus, RefreshCw, Repeat, Search, Send, Settings, Share2, Shield, Sparkles, Upload, Users, WalletCards, X, Zap } from "lucide-react";
 import { api, apiBlob, clearSession, friendlyErrorMessage } from "./api";
 import { buildCreditReadiness } from "./creditReadiness";
 import { askFirebaseAssistant, extractSupplierBillWithFirebase, friendlyAssistantError, generateAssistantImage } from "./firebaseAssistant";
 import Toast from "./Toast";
 import RecurringInvoices from "./RecurringInvoices";
 import WorkspaceTour, { TOUR_KEY } from "./WorkspaceTour";
-import { askFirebaseHybrid, askOnDevice, checkOnDeviceAvailability, firebaseOnDeviceConfigured, isWorkspaceDataQuestion, preloadOnDeviceSdk } from "./firebaseOnDeviceAssistant";
+import { askFirebaseHybrid, checkOnDeviceAvailability, firebaseOnDeviceConfigured, isWorkspaceDataQuestion, preloadOnDeviceSdk } from "./firebaseOnDeviceAssistant";
 import "./workspace.css";
 import "./dashboard-overrides.css";
 import "./assistant-page.css";
@@ -940,14 +940,13 @@ function downloadAssistantAnswer(text, format = "md") {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function FinancialAssistantPage({ tools, question, setQuestion, result, busy, onAsk, onNewChat, messages, deviceBusy, deviceProgress, onAskOnDevice, deviceConfigured, attachment, attachmentError, onAttachmentChange, onAttachmentRemove, imageMode, onToggleImageMode, navigate }) {
+function FinancialAssistantPage({ tools, question, setQuestion, result, busy, onAsk, onNewChat, messages, deviceBusy, deviceProgress, deviceConfigured, attachment, attachmentError, onAttachmentChange, onAttachmentRemove, imageMode, onToggleImageMode, navigate }) {
   const attachmentInputRef = useRef(null);
   const conversationRef = useRef(null);
   const messageCountRef = useRef(messages.length);
   const followConversationRef = useRef(true);
   const scrollbarTimerRef = useRef(null);
   const [scrollbarVisible, setScrollbarVisible] = useState(false);
-  const [deviceSdkReady, setDeviceSdkReady] = useState(false);
   const [deviceAvailability, setDeviceAvailability] = useState("checking");
   useEffect(() => {
     let active = true;
@@ -955,11 +954,9 @@ function FinancialAssistantPage({ tools, question, setQuestion, result, busy, on
     if (deviceConfigured) {
       Promise.allSettled([preloadOnDeviceSdk(), checkOnDeviceAvailability()]).then(([sdk, availability]) => {
         if (!active) return;
-        setDeviceSdkReady(sdk.status === "fulfilled");
         setDeviceAvailability(sdk.status !== "fulfilled" ? "firebase-error" : availability.status === "fulfilled" ? availability.value : "unknown");
       });
     } else {
-      setDeviceSdkReady(false);
       setDeviceAvailability("not-configured");
     }
     return () => { active = false; };
@@ -1034,13 +1031,14 @@ function FinancialAssistantPage({ tools, question, setQuestion, result, busy, on
           <textarea aria-label={imageMode ? "Image prompt" : "Your message"} id="financial-assistant-question" value={question} onChange={event => setQuestion(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); if (!busy && !deviceBusy && (question.trim() || attachment)) event.currentTarget.form?.requestSubmit(); } }} placeholder={imageMode ? "Describe the image you want Invoice AI to create…" : "Ask anything about your invoices, payments or business…"}/>
           {attachment && <div className="ws-assistant-attachment-chip"><Paperclip/><span>{attachment.name}<small>{(attachment.size / 1024 / 1024).toFixed(1)} MB · Attached for this question</small></span><button type="button" onClick={onAttachmentRemove} aria-label="Remove attachment"><X/></button></div>}
           {attachmentError && <p className="ws-error ws-assistant-file-error">{attachmentError}</p>}
-          <div className="ws-assistant-form-footer"><small>{imageMode ? "Image prompts are sent to Google’s image model. Image generation requires Firebase billing." : "General questions try this device first, then cloud fallback. Record questions and files use permission-checked cloud tools."}</small><div className="ws-assistant-submit-actions">
-            <button className="ws-button secondary ws-assistant-attach-button" type="button" disabled={busy || deviceBusy} onClick={() => attachmentInputRef.current?.click()}><Paperclip/> Attach file</button>
-            <button className={`ws-button secondary ws-assistant-image-toggle${imageMode ? " active" : ""}`} type="button" disabled={busy || deviceBusy} aria-pressed={imageMode} onClick={onToggleImageMode}><ImagePlus/> {imageMode ? "Image mode on" : "Generate image"}</button>
-            <button className="ws-button primary" disabled={busy || deviceBusy || (!question.trim() && !attachment)}>{busy ? <><RefreshCw className="ws-spin"/> {imageMode ? "Creating…" : "Thinking…"}</> : imageMode ? <><ImagePlus/> Create image</> : <><Bot/> Send</>}</button>
-            {!imageMode && <button className="ws-button secondary ws-on-device-button" type="button" disabled={busy || deviceBusy || !question.trim() || !!attachment || !deviceConfigured || !deviceSdkReady || deviceAvailability === "checking" || deviceAvailability === "unsupported" || deviceAvailability === "unavailable"} onClick={onAskOnDevice} title="General answers on this device; cannot read workspace records or uploaded files">{deviceBusy ? <><RefreshCw className="ws-spin"/> Preparing…</> : deviceAvailability === "downloadable" || deviceAvailability === "downloading" ? <><Download/> Prepare on-device</> : <><Shield/> On-device</>}</button>}
+          <div className="ws-assistant-form-footer"><small>{imageMode ? "Image prompts go to Google’s image model. Image generation requires Firebase billing." : "General questions prefer on-device AI, then use cloud fallback. Questions about your records use secure cloud tools."}</small><div className="ws-assistant-submit-actions">
+            <div className="ws-assistant-composer-tools" aria-label="Message tools">
+              <button className="ws-button secondary ws-assistant-icon-action ws-assistant-attach-button" type="button" aria-label="Attach file" data-tooltip="Attach file" title="Attach file" disabled={busy || deviceBusy} onClick={() => attachmentInputRef.current?.click()}><Paperclip/></button>
+              <button className={`ws-button secondary ws-assistant-icon-action ws-assistant-image-toggle${imageMode ? " active" : ""}`} type="button" aria-label={imageMode ? "Turn off image generation" : "Generate image"} data-tooltip={imageMode ? "Image mode on" : "Generate image"} title={imageMode ? "Image mode on" : "Generate image"} disabled={busy || deviceBusy} aria-pressed={imageMode} onClick={onToggleImageMode}><ImagePlus/></button>
+            </div>
+            <button className="ws-button primary ws-assistant-icon-action ws-assistant-send-action" type="submit" aria-label={busy ? (imageMode ? "Creating image" : "Waiting for Invoice AI") : imageMode ? "Create image" : "Send message"} data-tooltip={busy ? (imageMode ? "Creating image…" : "Working…") : imageMode ? "Create image" : "Send message"} title={busy ? (imageMode ? "Creating image…" : "Working…") : imageMode ? "Create image" : "Send message"} disabled={busy || deviceBusy || (!question.trim() && !attachment)}>{busy ? <RefreshCw className="ws-spin"/> : imageMode ? <ImagePlus/> : <Send/>}</button>
           </div></div>
-          {!imageMode && <small className="ws-assistant-device-status" aria-live="polite">{!deviceConfigured || deviceAvailability === "not-configured" ? "On-device help is not configured on this app right now." : deviceAvailability === "firebase-error" ? "Could not connect the on-device assistant to Firebase. Refresh the page and try again." : deviceAvailability === "checking" ? "Checking this browser for its on-device model…" : deviceAvailability === "unsupported" ? "On-device help needs desktop Chrome 139 or newer with Chrome’s local AI model supported and enabled." : deviceAvailability === "unavailable" ? "Chrome reports that the local AI model is unavailable on this device. Check Chrome’s model status and device storage or hardware requirements." : deviceAvailability === "downloadable" ? "Chrome supports on-device AI. The first use downloads its model and may take a few minutes." : deviceAvailability === "downloading" ? "Chrome is downloading the on-device model. Keep this page open and stay online until setup finishes." : deviceAvailability === "available" ? "On-device AI is ready in this browser. It answers general questions only and cannot access your workspace records." : "Could not check Chrome’s on-device model status. You can still try On-device if this is desktop Chrome 139 or newer."}</small>}
+          {!imageMode && <small className="ws-assistant-device-status" aria-live="polite">{!deviceConfigured || deviceAvailability === "not-configured" ? "Hybrid AI is not available right now." : deviceAvailability === "firebase-error" ? "Could not connect to Firebase AI. Refresh the page and try again." : deviceAvailability === "checking" ? "Checking on-device readiness…" : deviceAvailability === "unsupported" || deviceAvailability === "unavailable" ? "On-device AI is not available in this browser. General questions can still use cloud AI." : deviceAvailability === "downloadable" || deviceAvailability === "downloading" ? "First use may download the on-device model. Send uses cloud fallback when local AI is unavailable." : deviceAvailability === "available" ? "On-device AI is ready for general questions. Questions about workspace records use secure cloud tools." : "General questions use on-device AI when available, then cloud. Workspace-record questions use secure cloud tools."}</small>}
         </form>
       </section>
       <aside className="ws-assistant-side-panel" aria-label="Assistant tools and workspace data">
@@ -1384,38 +1382,6 @@ export default function Workspace({ path, navigate }) {
     }
   };
   const startNewAssistantChat = () => { setAssistantMessages([]); setAssistantResult(null); setQuestion(""); setAssistantFile(null); setAssistantFileError(""); setAssistantImageMode(false); };
-  const doAskOnDevice = async () => {
-    const asked = question.trim();
-    if (!asked || deviceAssistantBusy || busy) return;
-    setDeviceAssistantBusy(true); setDeviceAssistantProgress(0); setAssistantResult(null);
-    setQuestion("");
-    setAssistantMessages(previous => [...previous, { role: "user", text: asked }, { role: "model", text: "" }].slice(-20));
-    const updateLastReply = (text, extra = {}) => setAssistantMessages(previous => previous.map((message, index) => index === previous.length - 1 ? { ...message, text, ...extra } : message));
-    try {
-      const answer = await askOnDevice(asked, setDeviceAssistantProgress);
-      const notice = "Generated locally on this device. This answer cannot see your saved financial records.";
-      updateLastReply(answer, { modeLabel: "ANSWERED ON DEVICE", notice });
-      setAssistantResult({ answer, sources: [], mode: "on-device", notice });
-    } catch (e) {
-      const message = String(e?.message || "");
-      const friendly = /chrome reports/i.test(message)
-        ? "Chrome cannot run its local AI model on this device right now. Check Chrome’s model status and device requirements, or use Ask Invoice AI online."
-        : /not available in this browser/i.test(message)
-          ? "On-device AI needs desktop Chrome 139 or newer with Chrome’s local AI model enabled. You can still use Ask Invoice AI online."
-        : /firebase ai logic is not configured|app check enabled|site key|under 500 characters|type a question|use local help offline|secure connection|still preparing/i.test(message)
-        ? message
-        : /languagemodel|prompt api|not supported|on-device model.*available|not available.*device|not available in this browser|chrome reports/i.test(message)
-          ? "On-device AI needs desktop Chrome 139 or newer with Chrome’s Prompt API and model enabled. You can still use Ask Invoice AI for workspace questions."
-          : !navigator.onLine
-            ? "The local model is not ready in this page yet. Connect once, prepare it, and then use on-device help offline while this page stays open."
-            : "The on-device model could not start. Check that Chrome’s on-device AI model is available, then try again.";
-      updateLastReply(friendly, { modeLabel: "ON-DEVICE ONLY", notice: "Your question was not sent to Invoice AI’s financial-record tools." });
-      setAssistantResult({ answer: friendly, sources: [], mode: "on-device", notice: "Your question was not sent to Invoice AI’s financial-record tools." });
-    } finally {
-      setDeviceAssistantBusy(false);
-      checkOnDeviceAvailability().then(setDeviceAvailability).catch(() => setDeviceAvailability("unknown"));
-    }
-  };
   const runFirebaseExtraction = async (id, selectedFile) => {
     const preparation = await api(`/api/supplier-documents/${id}/extract/firebase/prepare`, { method: "POST" });
     let file = selectedFile;
@@ -1459,7 +1425,7 @@ export default function Workspace({ path, navigate }) {
           </>;
         })()}
       </section>}
-      {path === "/app/assistant" && <FinancialAssistantPage tools={data} question={question} setQuestion={setQuestion} result={assistantResult} busy={busy} onAsk={doAsk} onNewChat={startNewAssistantChat} messages={assistantMessages} deviceBusy={deviceAssistantBusy} deviceProgress={deviceAssistantProgress} onAskOnDevice={doAskOnDevice} deviceConfigured={firebaseOnDeviceConfigured()} attachment={assistantFile} attachmentError={assistantFileError} onAttachmentChange={handleAssistantFileChange} onAttachmentRemove={()=>{setAssistantFile(null);setAssistantFileError("")}} imageMode={assistantImageMode} onToggleImageMode={()=>setAssistantImageMode(value=>!value)} navigate={navigate}/>}
+      {path === "/app/assistant" && <FinancialAssistantPage tools={data} question={question} setQuestion={setQuestion} result={assistantResult} busy={busy} onAsk={doAsk} onNewChat={startNewAssistantChat} messages={assistantMessages} deviceBusy={deviceAssistantBusy} deviceProgress={deviceAssistantProgress} deviceConfigured={firebaseOnDeviceConfigured()} attachment={assistantFile} attachmentError={assistantFileError} onAttachmentChange={handleAssistantFileChange} onAttachmentRemove={()=>{setAssistantFile(null);setAssistantFileError("")}} imageMode={assistantImageMode} onToggleImageMode={()=>setAssistantImageMode(value=>!value)} navigate={navigate}/>}
       {path === "/app/upload-supplier-invoice" ? <SupplierInvoiceUpload busy={busy} onUpload={doUpload}/> : null}
       {path === "/app/bank-import" && <section className="ws-money-page">
         <div className="ws-card ws-money-hero compact"><div className="ws-money-hero-icon"><Upload/></div><div className="ws-money-hero-copy"><span className="ws-money-eyebrow">BANK STATEMENTS</span><h2>Bring your bank activity into Invoice AI</h2><p>Upload a statement file and we’ll help match its deposits and withdrawals to the payments you recorded.</p></div></div>

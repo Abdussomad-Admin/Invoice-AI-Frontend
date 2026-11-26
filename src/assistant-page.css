@@ -389,6 +389,45 @@
   white-space: nowrap;
 }
 .ws-assistant-page .ws-assistant-form-footer .ws-button svg { width: 14px; height: 14px; }
+.ws-assistant-page .ws-assistant-submit-actions { align-items: center; justify-content: space-between; }
+.ws-assistant-page .ws-assistant-composer-tools { display: flex; align-items: center; gap: 7px; }
+.ws-assistant-page .ws-assistant-form-footer .ws-assistant-icon-action {
+  position: relative;
+  display: inline-grid;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  flex: 0 0 40px;
+  place-items: center;
+  padding: 0;
+  border-radius: 10px;
+  transition: background .16s ease, border-color .16s ease, color .16s ease, transform .16s ease, box-shadow .16s ease;
+}
+.ws-assistant-page .ws-assistant-form-footer .ws-assistant-icon-action > svg { width: 17px; height: 17px; }
+.ws-assistant-page .ws-assistant-form-footer .ws-assistant-icon-action::after {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 7px);
+  left: 50%;
+  padding: 6px 9px;
+  border: 1px solid #38245f;
+  border-radius: 7px;
+  background: #251842;
+  box-shadow: 0 5px 14px #1d12352b;
+  color: #fff;
+  content: attr(data-tooltip);
+  font: 600 10px/1.2 'DM Sans', Arial, sans-serif;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -3px);
+  transition: opacity .14s ease, transform .14s ease;
+  white-space: nowrap;
+}
+.ws-assistant-page .ws-assistant-form-footer .ws-assistant-icon-action:hover::after,
+.ws-assistant-page .ws-assistant-form-footer .ws-assistant-icon-action:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
+.ws-assistant-page .ws-assistant-form-footer .ws-assistant-icon-action:hover:not(:disabled) { transform: translateY(-1px); }
+.ws-assistant-page .ws-assistant-form-footer .ws-assistant-send-action { border: 1px solid #5b25dd; }
 .ws-assistant-page .ws-assistant-device-status {
   margin-top: 1px;
   color: #6e6582;
@@ -408,5 +447,10 @@
   .ws-assistant-page .ws-assistant-form-footer { display: grid; grid-template-columns: 1fr; }
   .ws-assistant-page .ws-assistant-form-footer > small { display: block; max-width: 100%; }
   .ws-assistant-page .ws-assistant-submit-actions { width: 100%; }
-  .ws-assistant-page .ws-assistant-form-footer .ws-button { flex: 1 1 auto; }
+  .ws-assistant-page .ws-assistant-submit-actions { justify-content: space-between; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ws-assistant-page .ws-assistant-form-footer .ws-assistant-icon-action,
+  .ws-assistant-page .ws-assistant-form-footer .ws-assistant-icon-action::after { transition: none; }
 }
