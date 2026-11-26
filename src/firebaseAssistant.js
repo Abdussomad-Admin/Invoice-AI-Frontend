@@ -6,6 +6,7 @@ const FALLBACK_MODEL = "gemini-3.5-flash-lite";
 const IMAGE_MODEL = "gemini-nano-banana-2.1";
 const MAX_TOOL_CALLS_PER_ROUND = 4;
 const MAX_EXTRACTION_FILE_BYTES = 5 * 1024 * 1024;
+const WORKSPACE_ANSWER_TIMEOUT_MS = 90_000;
 
 export function friendlyAssistantError(error, mode = "chat") {
   const message = String(error?.message || error || "").trim();
@@ -89,23 +90,25 @@ function isTransientModelError(error) {
     .test(`${error?.message || ""} ${error?.code || ""}`);
 }
 
-async function runFinancialTool(call, allowedNames) {
+async function runFinancialTool(call, allowedNames, signal) {
   if (!allowedNames.has(call.name)) {
     return { result: { error: "That read-only financial tool is not available to your account." }, succeeded: false };
   }
   try {
     const result = await api(`/api/assistant/tools/${encodeURIComponent(call.name)}`, {
       method: "POST",
-      body: { arguments: call.args && typeof call.args === "object" ? call.args : {} }
+      body: { arguments: call.args && typeof call.args === "object" ? call.args : {} },
+      signal
     });
     return { result: result.data, source: result, succeeded: true };
   } catch (error) {
+    if (signal?.aborted) throw signal.reason || error;
     return { result: { error: "These records are unavailable right now. Please try again later." }, succeeded: false };
   }
 }
 
-async function sendMessageStream(chat, request, onText) {
-  const result = await chat.sendMessageStream(request);
+async function sendMessageStream(chat, request, onText, signal) {
+  const result = await chat.sendMessageStream(request, { signal });
   let text = "";
   for await (const chunk of result.stream) {
     const part = chunk.candidates?.flatMap(candidate => candidate.content?.parts || []).map(item => item.text || "").join("") || "";
@@ -123,78 +126,88 @@ export async function askFirebaseAssistant(question, conversationHistory = [], o
   const text = String(question || "").trim();
   if (!text && !file) throw new Error("Ask a question or attach a file first.");
 
-  const session = await api("/api/assistant/session", { method: "POST", body: { question: text } });
-  const tools = Array.isArray(session.tools) ? session.tools : [];
-  const allowedNames = new Set(tools.map(tool => tool.name));
-  const runtime = await getFirebaseRuntime();
-  const declarations = tools.map(tool => toFirebaseFunction(tool, runtime.Schema, runtime.SchemaType));
-  const modelOptions = {
-    systemInstruction: assistantSystemInstruction(session),
-    generationConfig: { temperature: 0.2, maxOutputTokens: 1000 },
-    ...(declarations.length ? { tools: [{ functionDeclarations: declarations }] } : {})
-  };
-
-  const history = Array.isArray(conversationHistory)
-    ? conversationHistory
-      .filter(message => (message?.role === "user" || message?.role === "model") && typeof message?.text === "string")
-      .slice(-8)
-      .map(message => ({ role: message.role, parts: [{ text: message.text.slice(0, 2000) }] }))
-    : [];
-  let chat = runtime.getGenerativeModel(runtime.ai, { ...modelOptions, model: session.model || MODEL }).startChat({ history });
-  const request = file
-    ? [text || `Please review the attached file and summarize its relevant financial details. File name: ${file.name}`, await fileAsInlineData(file)]
-    : text;
-  let response;
+  const requestController = new AbortController();
+  const timeoutId = setTimeout(() => requestController.abort(new DOMException("The assistant request timed out.", "TimeoutError")), WORKSPACE_ANSWER_TIMEOUT_MS);
+  const { signal } = requestController;
   try {
-    response = await sendMessageStream(chat, request, onText);
-  } catch (error) {
-    if (!isTransientModelError(error) || (session.model || MODEL) === FALLBACK_MODEL) throw error;
-    chat = runtime.getGenerativeModel(runtime.ai, { ...modelOptions, model: FALLBACK_MODEL }).startChat({ history });
-    onText?.("");
-    response = await sendMessageStream(chat, request, onText);
-  }
-  const sources = [];
-  const maxRounds = Math.max(1, Math.min(5, Number(session.maxToolRounds) || 3));
+    const session = await api("/api/assistant/session", { method: "POST", body: { question: text }, signal });
+    const tools = Array.isArray(session.tools) ? session.tools : [];
+    const allowedNames = new Set(tools.map(tool => tool.name));
+    const runtime = await getFirebaseRuntime();
+    const declarations = tools.map(tool => toFirebaseFunction(tool, runtime.Schema, runtime.SchemaType));
+    const modelOptions = {
+      systemInstruction: assistantSystemInstruction(session),
+      generationConfig: { temperature: 0.2, maxOutputTokens: 1000 },
+      ...(declarations.length ? { tools: [{ functionDeclarations: declarations }] } : {})
+    };
 
-  for (let round = 0; round <= maxRounds; round += 1) {
-    const calls = response.response.functionCalls?.() || [];
-    if (!calls.length) break;
-    if (round === maxRounds) {
-      return {
-        answer: "I could not finish checking the records in one response. Please ask a shorter question.",
-        sources,
-        notice: session.notice || "AI answers use the workspace records you can access. Check important figures before acting on them."
-      };
+    const history = Array.isArray(conversationHistory)
+      ? conversationHistory
+        .filter(message => (message?.role === "user" || message?.role === "model") && typeof message?.text === "string")
+        .slice(-8)
+        .map(message => ({ role: message.role, parts: [{ text: message.text.slice(0, 2000) }] }))
+      : [];
+    let chat = runtime.getGenerativeModel(runtime.ai, { ...modelOptions, model: session.model || MODEL }).startChat({ history });
+    const request = file
+      ? [text || `Please review the attached file and summarize its relevant financial details. File name: ${file.name}`, await fileAsInlineData(file)]
+      : text;
+    let response;
+    try {
+      response = await sendMessageStream(chat, request, onText, signal);
+    } catch (error) {
+      if (!isTransientModelError(error) || (session.model || MODEL) === FALLBACK_MODEL) throw error;
+      chat = runtime.getGenerativeModel(runtime.ai, { ...modelOptions, model: FALLBACK_MODEL }).startChat({ history });
+      onText?.("");
+      response = await sendMessageStream(chat, request, onText, signal);
+    }
+    const sources = [];
+    const maxRounds = Math.max(1, Math.min(5, Number(session.maxToolRounds) || 3));
+
+    for (let round = 0; round <= maxRounds; round += 1) {
+      const calls = response.response.functionCalls?.() || [];
+      if (!calls.length) break;
+      if (round === maxRounds) {
+        return {
+          answer: "I could not finish checking the records in one response. Please ask a shorter question.",
+          sources,
+          notice: session.notice || "AI answers use the workspace records you can access. Check important figures before acting on them."
+        };
+      }
+
+      const results = await Promise.all(calls.map((call, index) => index < MAX_TOOL_CALLS_PER_ROUND
+        ? runFinancialTool(call, allowedNames, signal)
+        : Promise.resolve({ result: { error: "Too many data requests in one step. Ask for one thing at a time." }, succeeded: false })));
+
+      const responses = calls.map((call, index) => {
+        const executed = results[index];
+        sources.push({
+          tool: call.name,
+          arguments: call.args || {},
+          data: executed.result,
+          succeeded: executed.succeeded
+        });
+        return {
+          type: "functionResponse",
+          functionResponse: {
+            name: call.name,
+            ...(call.id ? { id: call.id } : {}),
+            response: executed.result
+          }
+        };
+      });
+      onText?.("");
+      response = await sendMessageStream(chat, responses, onText, signal);
     }
 
-    const results = await Promise.all(calls.map((call, index) => index < MAX_TOOL_CALLS_PER_ROUND
-      ? runFinancialTool(call, allowedNames)
-      : Promise.resolve({ result: { error: "Too many data requests in one step. Ask for one thing at a time." }, succeeded: false })));
-
-    const responses = calls.map((call, index) => {
-      const executed = results[index];
-      sources.push({
-        tool: call.name,
-        arguments: call.args || {},
-        data: executed.result,
-        succeeded: executed.succeeded
-      });
-      return {
-        type: "functionResponse",
-        functionResponse: {
-          name: call.name,
-          ...(call.id ? { id: call.id } : {}),
-          response: executed.result
-        }
-      };
-    });
-    onText?.("");
-    response = await sendMessageStream(chat, responses, onText);
+    const answer = response.response.text?.()?.trim();
+    if (!answer) throw new Error("The AI did not return an answer. Please try rephrasing your question.");
+    return { answer, sources, notice: session.notice || "AI answers use the workspace records you can access. Check important figures before acting on them." };
+  } catch (error) {
+    if (signal.aborted) throw signal.reason || new DOMException("The assistant request timed out.", "TimeoutError");
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  const answer = response.response.text?.()?.trim();
-  if (!answer) throw new Error("The AI did not return an answer. Please try rephrasing your question.");
-  return { answer, sources, notice: session.notice || "AI answers use the workspace records you can access. Check important figures before acting on them." };
 }
 
 export async function generateAssistantImage(prompt, referenceImage = null) {
