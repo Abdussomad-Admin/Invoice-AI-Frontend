@@ -15,16 +15,18 @@ export function friendlyAssistantError(error, mode = "chat") {
     : "Invoice AI couldn’t answer right now. Please try again later.";
   if (/describe the image|keep image prompts|image editing supports|reference image is larger|selected invoice could not be read|selected invoice could not be prepared/i.test(lower)) return message;
   if (/session has expired|please log in again|sign in again/.test(lower)) return "Your session has expired. Please sign in again.";
+  if (/app check|appcheck|attestation|firebasevertexai.*permission|permission_denied.*model/i.test(lower)) return "Invoice AI couldn’t verify this AI request securely. Please try again later.";
   if (/you don.t have permission|not have access|unauthorized|forbidden/.test(lower)) return "You don’t have access to this information. Please contact your workspace admin.";
   if (/no image was generated|did not return an image|no images were generated/.test(lower)) return "I couldn’t create an image from that prompt. Try changing the description and try again.";
   if (/did not return an answer|no answer|try rephrasing|rephrasing your question/.test(lower)) return "I couldn’t put together an answer for that. Try asking in a different way.";
-  if (/failed to fetch|networkerror|network request failed|load failed|err_network|internet connection|offline|could not connect|connection (?:was )?lost/i.test(lower)) {
-    return "Connection problem. Check your internet and try again.";
+  if (/invoice ai.s server didn.t respond/i.test(lower)) return message;
+  if (/failed to fetch|networkerror|network request failed|load failed|err_network|internet connection|offline|could not connect|connection (?:was )?lost|server didn.t respond|ai service just now/i.test(lower)) {
+    return "Invoice AI couldn’t reach its AI service just now. Your internet may still be working. Please try again shortly.";
   }
   if (/timeout|timed out|deadline exceeded|taking too long/i.test(lower)) {
     return mode === "image"
-      ? "Image creation is taking too long. Please try again in a moment."
-      : "Invoice AI took too long to respond. Please try again in a moment.";
+      ? "The image service is taking longer than expected. Please try again in a moment."
+      : "The AI service is taking longer than expected. Please try again in a moment.";
   }
   if (/\b(429|500|502|503|504)\b|high demand|overload|resource exhausted|temporarily unavailable|quota exceeded|rate limit/i.test(lower)) {
     return "Invoice AI is busy right now. Please try again shortly.";

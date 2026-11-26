@@ -14,7 +14,7 @@ Invoice AI helps freelancers and small businesses create invoices, track custome
 
 Small businesses often manage invoices, payments, and supplier costs across disconnected tools. That makes it harder to understand what customers still owe, what has been paid, and how recorded income compares with expenses. Financial data is also sensitive, so a useful assistant should make clear when a question stays on the user's device and when it needs cloud processing to check business records.
 
-Invoice AI combines everyday invoicing and financial record keeping with an assistant designed around that distinction. General questions about bookkeeping and safe business practices use Firebase AI Logic with `PREFER_ON_DEVICE`. When Chrome's local model is unavailable, Firebase AI Logic can answer with cloud Gemini; each reply labels the inference path and tells the user when a general question was sent online. A separate **On-device** action is local-only for users who want general help to stay on their device, including offline use after Chrome has prepared its model.
+Invoice AI combines everyday invoicing and financial record keeping with an assistant designed around that distinction. The user has one **Send** action: general questions use Firebase AI Logic with `PREFER_ON_DEVICE` and fall back to cloud Gemini when needed, while questions about saved records use the permission-checked cloud assistant. Replies label the inference path and tell the user when a general question was sent online. General questions can run offline after Chrome has prepared its model; workspace-record questions require the online workspace service.
 
 When a user asks about their own invoices, payments, customers, supplier bills, or financial figures, the app uses the cloud assistant and read-only tools available to their account role. The Invoice AI API independently checks the user's authentication, workspace membership, and permissions for each tool request. The local model cannot see records or invoke those tools. File analysis and image creation also use cloud models because they are not supported by the local inference path used here.
 
@@ -22,7 +22,7 @@ When a user asks about their own invoices, payments, customers, supplier bills, 
 
 - Firebase AI Logic is initialized in the web app with the Gemini Developer API and protected by Firebase App Check.
 - General, non-record-specific questions use `InferenceMode.PREFER_ON_DEVICE`; the result's `inferenceSource` determines whether the UI labels the answer **Answered on device** or **Cloud fallback**.
-- The app starts Chrome's local model setup on user action and displays model availability and download progress. An explicit **On-device** action uses `ONLY_ON_DEVICE` and never silently sends that question to cloud.
+- The app prepares Chrome's local model as part of the general-question flow and displays model availability and download progress. If the cloud request fails while the local model is ready, a general question can still be answered locally; no workspace records are available on this path.
 - Record-specific prompts use Firebase AI Logic's cloud-hosted Gemini model with read-only financial tools returned for the signed-in role. The API checks permissions again before returning tenant-scoped results.
 - User-visible notices distinguish local answers, cloud fallback, and workspace-record answers.
 

@@ -12,6 +12,11 @@ const onDeviceOptions = {
   expectedOutputs: [{ type: "text", languages: ["en"] }]
 };
 
+function isTemporaryAiServiceFailure(error) {
+  return /failed to fetch|network|offline|timeout|timed out|err_network|\b(429|500|502|503|504)\b|resource exhausted|high demand|overload|temporarily unavailable/i
+    .test(`${error?.message || ""} ${error?.code || ""}`);
+}
+
 export async function checkOnDeviceAvailability() {
   const languageModel = globalThis.LanguageModel;
   if (typeof languageModel?.availability !== "function") return "unsupported";
@@ -83,25 +88,43 @@ export async function askFirebaseHybrid(question, onText, onProgress) {
     `User request: ${text}`
   ].join("\n\n");
 
-  const result = await model.generateContentStream(prompt);
   let streamedText = "";
-  for await (const chunk of result.stream) {
-    const part = chunk.candidates?.flatMap(candidate => candidate.content?.parts || []).map(item => item.text || "").join("") || "";
-    if (part) { streamedText += part; onText?.(streamedText); }
+  try {
+    const result = await model.generateContentStream(prompt);
+    for await (const chunk of result.stream) {
+      const part = chunk.candidates?.flatMap(candidate => candidate.content?.parts || []).map(item => item.text || "").join("") || "";
+      if (part) { streamedText += part; onText?.(streamedText); }
+    }
+    const response = await result.response;
+    const answer = response?.text?.()?.trim() || streamedText.trim();
+    if (!answer) throw new Error("The assistant did not return an answer. Please try again.");
+    const inferenceSource = String(response?.inferenceSource || "").toUpperCase();
+    const usedOnDevice = inferenceSource.includes("ON_DEVICE");
+    return {
+      answer,
+      mode: usedOnDevice ? "on-device" : "cloud-fallback",
+      inferenceSource,
+      notice: usedOnDevice
+        ? "Answered on this device with Chrome’s local model. This general answer did not use your saved workspace records."
+        : "Chrome’s local model wasn’t ready, so Firebase AI Logic answered with cloud Gemini. This general question was sent online; workspace records were not included."
+    };
+  } catch (error) {
+    // A ready local model can still answer general questions if Firebase's cloud
+    // endpoint has a temporary connection or availability issue.
+    if (availability !== "available" || streamedText || !isTemporaryAiServiceFailure(error)) throw error;
+    onText?.("");
+    try {
+      const answer = await askOnDevice(text, onProgress);
+      return {
+        answer,
+        mode: "on-device",
+        inferenceSource: "ON_DEVICE",
+        notice: "The online AI service was unavailable, so this general answer was completed on your device. It did not use workspace records."
+      };
+    } catch {
+      throw error;
+    }
   }
-  const response = await result.response;
-  const answer = response?.text?.()?.trim() || streamedText.trim();
-  if (!answer) throw new Error("The assistant did not return an answer. Please try again.");
-  const inferenceSource = String(response?.inferenceSource || "").toUpperCase();
-  const usedOnDevice = inferenceSource.includes("ON_DEVICE");
-  return {
-    answer,
-    mode: usedOnDevice ? "on-device" : "cloud-fallback",
-    inferenceSource,
-    notice: usedOnDevice
-      ? "Answered on this device with Chrome’s local model. This general answer did not use your saved workspace records."
-      : "Chrome’s local model wasn’t ready, so Firebase AI Logic answered with cloud Gemini. This general question was sent online; workspace records were not included."
-  };
 }
 
 async function getOnDeviceModel() {

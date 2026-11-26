@@ -1371,7 +1371,7 @@ export default function Workspace({ path, navigate }) {
       const friendly = useHybridMode && !navigator.onLine
         ? "You’re offline and Chrome’s local model isn’t ready yet. Reconnect once to prepare it, then you can ask general questions offline."
         : friendlyAssistantError(error, useImageMode ? "image" : "chat");
-      updateLastReply(friendly, useHybridMode ? { modeLabel: "HYBRID ASSISTANT", notice: "The local model could not answer and no cloud request was made." } : {});
+      updateLastReply(friendly, useHybridMode ? { modeLabel: "HYBRID ASSISTANT", notice: "The AI service did not respond. This general question did not include your workspace records." } : {});
       setAssistantResult({ answer: friendly, sources: [] });
     } finally {
       setBusy(false);

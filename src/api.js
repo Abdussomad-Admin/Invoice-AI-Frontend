@@ -67,7 +67,7 @@ async function request(url, options) {
     return await fetch(url, options);
   } catch (error) {
     if (error instanceof TypeError) {
-      throw new Error("We couldn’t connect to Invoice AI. Check your internet connection and try again.", { cause: error });
+      throw new Error("Invoice AI’s server didn’t respond. Your internet may still be working; please try again shortly.", { cause: error });
     }
     throw error;
   }
