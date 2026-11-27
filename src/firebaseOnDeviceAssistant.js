@@ -1,8 +1,9 @@
 import { firebaseConfigured, getFirebaseRuntime } from "./firebaseRuntime";
 
 let modelPromise;
-let cloudModelPromise;
+let hybridModelPromise;
 let deviceReadyPromise;
+let hybridDeviceReadyPromise;
 
 const HYBRID_CLOUD_MODEL = "gemini-3.8-flash";
 const CLOUD_REQUEST_TIMEOUT_MS = 60_000;
@@ -44,14 +45,18 @@ export function isWorkspaceDataQuestion(question) {
   return personal || lookup || period || !educational;
 }
 
-async function getCloudModel() {
-  if (!cloudModelPromise) {
-    cloudModelPromise = getFirebaseRuntime().then(runtime => runtime.getGenerativeModel(runtime.ai, {
-      model: HYBRID_CLOUD_MODEL,
-      generationConfig: { temperature: 0.3, maxOutputTokens: 700 }
-    })).catch(error => { cloudModelPromise = undefined; throw error; });
+async function getHybridModel() {
+  if (!hybridModelPromise) {
+    hybridModelPromise = getFirebaseRuntime().then(runtime => runtime.getGenerativeModel(runtime.ai, {
+      mode: runtime.InferenceMode.PREFER_IN_CLOUD,
+      onDeviceParams: { createOptions: onDeviceOptions },
+      inCloudParams: {
+        model: HYBRID_CLOUD_MODEL,
+        generationConfig: { temperature: 0.3, maxOutputTokens: 700 }
+      }
+    })).catch(error => { hybridModelPromise = undefined; throw error; });
   }
-  return cloudModelPromise;
+  return hybridModelPromise;
 }
 
 export async function askFirebaseHybrid(question, onText, onProgress, onDeviceStart) {
@@ -66,15 +71,9 @@ export async function askFirebaseHybrid(question, onText, onProgress, onDeviceSt
     `User request: ${text}`
   ].join("\n\n");
 
-  if (!navigator.onLine) {
+  const offlineAtStart = !navigator.onLine;
+  if (offlineAtStart) {
     onDeviceStart?.();
-    const answer = await askOnDevice(text, onProgress);
-    return {
-      answer,
-      mode: "on-device",
-      inferenceSource: "ON_DEVICE",
-      notice: "You’re offline, so this general answer was completed on your device. It did not use your saved workspace records."
-    };
   }
 
   let streamedText = "";
@@ -85,7 +84,17 @@ export async function askFirebaseHybrid(question, onText, onProgress, onDeviceSt
     controller.abort(new DOMException("The cloud AI request timed out.", "TimeoutError"));
   }, CLOUD_REQUEST_TIMEOUT_MS);
   try {
-    const model = await getCloudModel();
+    const model = await getHybridModel();
+    if (!hybridDeviceReadyPromise) {
+      try {
+        // Start preparing the local model after this user action. PREFER_IN_CLOUD
+        // answers online without waiting for the download, then can use it offline.
+        hybridDeviceReadyPromise = model.initializeDeviceModel(progress => onProgress?.(Math.round(progress * 100)))
+          .catch(error => { hybridDeviceReadyPromise = undefined; return null; });
+      } catch {
+        hybridDeviceReadyPromise = undefined;
+      }
+    }
     const result = await model.generateContentStream(prompt, { signal: controller.signal });
     for await (const chunk of result.stream) {
       const part = chunk.candidates?.flatMap(candidate => candidate.content?.parts || []).map(item => item.text || "").join("") || "";
@@ -94,11 +103,17 @@ export async function askFirebaseHybrid(question, onText, onProgress, onDeviceSt
     const response = await result.response;
     const answer = response?.text?.()?.trim() || streamedText.trim();
     if (!answer) throw new Error("The assistant did not return an answer. Please try again.");
+    const inferenceSource = String(response?.inferenceSource || "").toUpperCase();
+    const usedOnDevice = inferenceSource.includes("ON_DEVICE");
     return {
       answer,
-      mode: "cloud",
-      inferenceSource: "IN_CLOUD",
-      notice: "Answered online with Firebase AI Logic and Gemini. This general answer did not use your saved workspace records."
+      mode: usedOnDevice ? "on-device" : "cloud",
+      inferenceSource,
+      notice: usedOnDevice
+        ? offlineAtStart || !navigator.onLine
+          ? "You’re offline, so this general answer was completed on your device. It did not use your saved workspace records."
+          : "Firebase AI Logic used Chrome’s local model because cloud AI was unavailable. This answer did not use your saved workspace records."
+        : "Answered online with Firebase AI Logic and Gemini. This general answer did not use your saved workspace records."
     };
   } catch (error) {
     // General questions use cloud Gemini first. A ready local model is only a
