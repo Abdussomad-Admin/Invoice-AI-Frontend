@@ -1031,14 +1031,14 @@ function FinancialAssistantPage({ tools, question, setQuestion, result, busy, on
           <textarea aria-label={imageMode ? "Image prompt" : "Your message"} id="financial-assistant-question" value={question} onChange={event => setQuestion(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); if (!busy && !deviceBusy && (question.trim() || attachment)) event.currentTarget.form?.requestSubmit(); } }} placeholder={imageMode ? "Describe the image you want Invoice AI to create…" : "Ask anything about your invoices, payments or business…"}/>
           {attachment && <div className="ws-assistant-attachment-chip"><Paperclip/><span>{attachment.name}<small>{(attachment.size / 1024 / 1024).toFixed(1)} MB · Attached for this question</small></span><button type="button" onClick={onAttachmentRemove} aria-label="Remove attachment"><X/></button></div>}
           {attachmentError && <p className="ws-error ws-assistant-file-error">{attachmentError}</p>}
-          <div className="ws-assistant-form-footer"><small>{imageMode ? "Image prompts go to Google’s image model. Image generation requires Firebase billing." : "General questions prefer on-device AI, then use cloud fallback. Questions about your records use secure cloud tools."}</small><div className="ws-assistant-submit-actions">
+          <div className="ws-assistant-form-footer"><small>{imageMode ? "Image prompts go to Google’s image model. Image generation requires Firebase billing." : "General questions use Firebase cloud AI first. Questions about your records use secure cloud tools."}</small><div className="ws-assistant-submit-actions">
             <div className="ws-assistant-composer-tools" aria-label="Message tools">
               <button className="ws-button secondary ws-assistant-icon-action ws-assistant-attach-button" type="button" aria-label="Attach file" data-tooltip="Attach file" title="Attach file" disabled={busy || deviceBusy} onClick={() => attachmentInputRef.current?.click()}><Paperclip/></button>
               <button className={`ws-button secondary ws-assistant-icon-action ws-assistant-image-toggle${imageMode ? " active" : ""}`} type="button" aria-label={imageMode ? "Turn off image generation" : "Generate image"} data-tooltip={imageMode ? "Image mode on" : "Generate image"} title={imageMode ? "Image mode on" : "Generate image"} disabled={busy || deviceBusy} aria-pressed={imageMode} onClick={onToggleImageMode}><ImagePlus/></button>
             </div>
             <button className="ws-button primary ws-assistant-icon-action ws-assistant-send-action" type="submit" aria-label={busy ? (imageMode ? "Creating image" : "Waiting for Invoice AI") : imageMode ? "Create image" : "Send message"} data-tooltip={busy ? (imageMode ? "Creating image…" : "Working…") : imageMode ? "Create image" : "Send message"} title={busy ? (imageMode ? "Creating image…" : "Working…") : imageMode ? "Create image" : "Send message"} disabled={busy || deviceBusy || (!question.trim() && !attachment)}>{busy ? <RefreshCw className="ws-spin"/> : imageMode ? <ImagePlus/> : <Send/>}</button>
           </div></div>
-          {!imageMode && <small className="ws-assistant-device-status" aria-live="polite">{!deviceConfigured || deviceAvailability === "not-configured" ? "Hybrid AI is not available right now." : deviceAvailability === "firebase-error" ? "Could not connect to Firebase AI. Refresh the page and try again." : deviceAvailability === "checking" ? "Checking on-device readiness…" : deviceAvailability === "unsupported" || deviceAvailability === "unavailable" ? "On-device AI is not available in this browser. General questions can still use cloud AI." : deviceAvailability === "downloadable" || deviceAvailability === "downloading" ? "First use may download the on-device model. Send uses cloud fallback when local AI is unavailable." : deviceAvailability === "available" ? "On-device AI is ready for general questions. Questions about workspace records use secure cloud tools." : "General questions use on-device AI when available, then cloud. Workspace-record questions use secure cloud tools."}</small>}
+          {!imageMode && <small className="ws-assistant-device-status" aria-live="polite">{!deviceConfigured || deviceAvailability === "not-configured" ? "Hybrid AI is not available right now." : deviceAvailability === "firebase-error" ? "Could not connect to Firebase AI. Refresh the page and try again." : deviceAvailability === "checking" ? "Checking on-device readiness…" : deviceAvailability === "unsupported" || deviceAvailability === "unavailable" ? "General questions use Firebase cloud AI. On-device help is not available in this browser." : deviceAvailability === "downloadable" || deviceAvailability === "downloading" ? "General questions use Firebase cloud AI first. On-device fallback may require a one-time model download." : deviceAvailability === "available" ? "General questions use Firebase cloud AI first, with on-device fallback if the cloud is unavailable. Workspace-record questions use secure cloud tools." : "General questions use Firebase cloud AI first; on-device help is used offline or if cloud AI is temporarily unavailable."}</small>}
         </form>
       </section>
       <aside className="ws-assistant-side-panel" aria-label="Assistant tools and workspace data">
@@ -1348,8 +1348,8 @@ export default function Workspace({ path, navigate }) {
     const useHybridMode = !useImageMode && !file && !isWorkspaceDataQuestion(asked);
     const history = assistantMessages;
     setBusy(true); setAssistantResult(null); setQuestion(""); setAssistantFileError("");
-    if (useHybridMode) { setDeviceAssistantBusy(true); setDeviceAssistantProgress(0); }
-    setAssistantMessages(previous => [...previous, { role: "user", text: asked, ...(file ? { attachmentName: file.name } : {}) }, { role: "model", text: "", ...(useHybridMode ? { loadingLabel: "Trying Chrome’s local model first; cloud fallback is available" } : {}) }].slice(-20));
+    if (useHybridMode) { setDeviceAssistantBusy(false); setDeviceAssistantProgress(0); }
+    setAssistantMessages(previous => [...previous, { role: "user", text: asked, ...(file ? { attachmentName: file.name } : {}) }, { role: "model", text: "", ...(useHybridMode ? { loadingLabel: "Asking Firebase AI; on-device fallback is available" } : {}) }].slice(-20));
     const updateLastReply = (text, extra = {}) => setAssistantMessages(previous => previous.map((message, index) => index === previous.length - 1 ? { ...message, text, ...extra } : message));
     try {
       if (useImageMode) {
@@ -1358,8 +1358,8 @@ export default function Workspace({ path, navigate }) {
         setAssistantResult({ answer: generated.text, sources: [], mode: "image" });
       } else {
         if (useHybridMode) {
-          const response = await askFirebaseHybrid(asked, updateLastReply, setDeviceAssistantProgress);
-          updateLastReply(response.answer, { modeLabel: response.mode === "on-device" ? "ANSWERED ON DEVICE" : "CLOUD FALLBACK", notice: response.notice });
+          const response = await askFirebaseHybrid(asked, updateLastReply, setDeviceAssistantProgress, () => setDeviceAssistantBusy(true));
+          updateLastReply(response.answer, { modeLabel: response.mode === "on-device" ? "ANSWERED ON DEVICE" : "ANSWERED WITH FIREBASE AI", notice: response.notice });
           setAssistantResult(response);
         } else {
           const response = await askFirebaseAssistant(asked, history, updateLastReply, file);

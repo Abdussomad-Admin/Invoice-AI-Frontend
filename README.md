@@ -36,12 +36,12 @@ To configure it:
 3. Register the production web app in Firebase App Check with the reCAPTCHA Enterprise provider. Set `VITE_FIREBASE_APPCHECK_SITE_KEY` to that provider's site key in Vercel. Do not use a debug token in production.
 4. For localhost, the app initializes Firebase's App Check debug provider. Copy its generated debug token from the browser console and safelist that token in Firebase App Check.
 
-Cloud model requests need an internet connection. Firebase App Check is required for production cloud requests. Hybrid on-device inference requires desktop Chrome 139 or newer, a supported device, and Chrome's Prompt API model. The first model download needs an internet connection and may take several minutes. If the local model is unavailable, general questions automatically fall back to cloud Gemini; the reply indicates that the question was sent online. Once prepared, local-only questions can work offline while the page remains open. Workspace records always use the permission-checked cloud assistant.
+Cloud model requests need an internet connection. Firebase App Check is required for production cloud requests. On-device inference requires desktop Chrome 139 or newer, a supported device, and Chrome's Prompt API model. The first model download needs an internet connection and may take several minutes. General questions use cloud Gemini while online and switch to the on-device model offline; if cloud AI temporarily fails, a ready local model can answer instead. Once prepared, general questions can work offline while the page remains open. Workspace records always use the permission-checked cloud assistant.
 
 ### Hybrid inference demo path
 
 1. Open the deployed app in supported desktop Chrome while online and sign in.
-2. Ask a general question such as **“How can I politely remind a customer about a late invoice?”** The reply shows whether Chrome's local model answered or Firebase AI Logic used cloud fallback.
+2. Ask a general question such as **“How can I politely remind a customer about a late invoice?”** Online, the reply uses Firebase AI Logic cloud Gemini; offline, it can use Chrome's prepared local model.
 3. Ask **“Which invoices are overdue?”** to demonstrate the separate cloud path that checks only records available to the signed-in user's role.
 4. Use **On-device** for a local-only general question. After preparing the model, disconnect the network while keeping the page open and repeat the question to demonstrate offline inference.
 

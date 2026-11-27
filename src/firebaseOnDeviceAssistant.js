@@ -1,11 +1,11 @@
 import { firebaseConfigured, getFirebaseRuntime } from "./firebaseRuntime";
 
 let modelPromise;
-let hybridModelPromise;
+let cloudModelPromise;
 let deviceReadyPromise;
-let hybridDeviceReadyPromise;
 
 const HYBRID_CLOUD_MODEL = "gemini-3.8-flash";
+const CLOUD_REQUEST_TIMEOUT_MS = 60_000;
 
 const onDeviceOptions = {
   expectedInputs: [{ type: "text", languages: ["en"] }],
@@ -44,42 +44,20 @@ export function isWorkspaceDataQuestion(question) {
   return personal || lookup || period || !educational;
 }
 
-async function getHybridModel() {
-  if (!hybridModelPromise) {
-    hybridModelPromise = getFirebaseRuntime().then(runtime => ({
-      runtime,
-      model: runtime.getGenerativeModel(runtime.ai, {
-        mode: runtime.InferenceMode.PREFER_ON_DEVICE,
-        onDeviceParams: { createOptions: onDeviceOptions },
-        inCloudParams: {
-          model: HYBRID_CLOUD_MODEL,
-          generationConfig: { temperature: 0.3, maxOutputTokens: 700 }
-        }
-      })
-    })).catch(error => { hybridModelPromise = undefined; throw error; });
+async function getCloudModel() {
+  if (!cloudModelPromise) {
+    cloudModelPromise = getFirebaseRuntime().then(runtime => runtime.getGenerativeModel(runtime.ai, {
+      model: HYBRID_CLOUD_MODEL,
+      generationConfig: { temperature: 0.3, maxOutputTokens: 700 }
+    })).catch(error => { cloudModelPromise = undefined; throw error; });
   }
-  return hybridModelPromise;
+  return cloudModelPromise;
 }
 
-export async function askFirebaseHybrid(question, onText, onProgress) {
+export async function askFirebaseHybrid(question, onText, onProgress, onDeviceStart) {
   const text = String(question || "").trim();
   if (!text) throw new Error("Type a question first.");
   if (!window.isSecureContext) throw new Error("AI needs a secure connection. Open Invoice AI over HTTPS or localhost.");
-
-  const availability = await checkOnDeviceAvailability();
-  if (!navigator.onLine && availability !== "available") {
-    throw new Error("You're offline and Chrome's local AI model isn't ready yet. Reconnect once to prepare it, then try again offline.");
-  }
-
-  const { model } = await getHybridModel();
-  if (!hybridDeviceReadyPromise) {
-    try {
-      hybridDeviceReadyPromise = model.initializeDeviceModel(progress => onProgress?.(Math.round(progress * 100)))
-        .catch(error => { hybridDeviceReadyPromise = undefined; return null; });
-    } catch {
-      hybridDeviceReadyPromise = undefined;
-    }
-  }
 
   const prompt = [
     "You are Invoice AI, a private hybrid assistant for small-business finance and bookkeeping education.",
@@ -88,9 +66,27 @@ export async function askFirebaseHybrid(question, onText, onProgress) {
     `User request: ${text}`
   ].join("\n\n");
 
+  if (!navigator.onLine) {
+    onDeviceStart?.();
+    const answer = await askOnDevice(text, onProgress);
+    return {
+      answer,
+      mode: "on-device",
+      inferenceSource: "ON_DEVICE",
+      notice: "You’re offline, so this general answer was completed on your device. It did not use your saved workspace records."
+    };
+  }
+
   let streamedText = "";
+  const controller = new AbortController();
+  let timedOut = false;
+  const timeoutId = window.setTimeout(() => {
+    timedOut = true;
+    controller.abort(new DOMException("The cloud AI request timed out.", "TimeoutError"));
+  }, CLOUD_REQUEST_TIMEOUT_MS);
   try {
-    const result = await model.generateContentStream(prompt);
+    const model = await getCloudModel();
+    const result = await model.generateContentStream(prompt, { signal: controller.signal });
     for await (const chunk of result.stream) {
       const part = chunk.candidates?.flatMap(candidate => candidate.content?.parts || []).map(item => item.text || "").join("") || "";
       if (part) { streamedText += part; onText?.(streamedText); }
@@ -98,21 +94,23 @@ export async function askFirebaseHybrid(question, onText, onProgress) {
     const response = await result.response;
     const answer = response?.text?.()?.trim() || streamedText.trim();
     if (!answer) throw new Error("The assistant did not return an answer. Please try again.");
-    const inferenceSource = String(response?.inferenceSource || "").toUpperCase();
-    const usedOnDevice = inferenceSource.includes("ON_DEVICE");
     return {
       answer,
-      mode: usedOnDevice ? "on-device" : "cloud-fallback",
-      inferenceSource,
-      notice: usedOnDevice
-        ? "Answered on this device with Chrome’s local model. This general answer did not use your saved workspace records."
-        : "Chrome’s local model wasn’t ready, so Firebase AI Logic answered with cloud Gemini. This general question was sent online; workspace records were not included."
+      mode: "cloud",
+      inferenceSource: "IN_CLOUD",
+      notice: "Answered online with Firebase AI Logic and Gemini. This general answer did not use your saved workspace records."
     };
   } catch (error) {
-    // A ready local model can still answer general questions if Firebase's cloud
-    // endpoint has a temporary connection or availability issue.
-    if (availability !== "available" || streamedText || !isTemporaryAiServiceFailure(error)) throw error;
+    // General questions use cloud Gemini first. A ready local model is only a
+    // fallback for a temporary cloud/network failure, never the online default.
+    if (!timedOut && !isTemporaryAiServiceFailure(error)) throw error;
+    const availability = await checkOnDeviceAvailability();
+    if (availability !== "available") {
+      if (timedOut) throw controller.signal.reason || new DOMException("The cloud AI request timed out.", "TimeoutError");
+      throw error;
+    }
     onText?.("");
+    onDeviceStart?.();
     try {
       const answer = await askOnDevice(text, onProgress);
       return {
@@ -124,6 +122,8 @@ export async function askFirebaseHybrid(question, onText, onProgress) {
     } catch {
       throw error;
     }
+  } finally {
+    window.clearTimeout(timeoutId);
   }
 }
 
@@ -154,7 +154,7 @@ export async function askOnDevice(question, onProgress) {
   const availability = await checkOnDeviceAvailability();
   if (availability === "unsupported") throw new Error("On-device AI is not available in this browser. Use desktop Chrome 139 or newer and make sure Chrome's on-device model is enabled.");
   if (availability === "unavailable") throw new Error("Chrome reports that the on-device model is unavailable on this device. Check Chrome's model status, free storage, and device requirements.");
-  if (!navigator.onLine && !deviceReadyPromise) {
+  if (!navigator.onLine && availability !== "available") {
     throw new Error("To use local help offline, open Invoice AI while connected and prepare the on-device model first. Then keep this page available when you go offline.");
   }
 
