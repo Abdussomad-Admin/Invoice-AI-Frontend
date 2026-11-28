@@ -1,7 +1,7 @@
 /* Public marketing pages: dedicated small-screen layout. */
 @media (max-width: 700px) {
   body:has(.nav) { overflow-x: hidden; }
-  body:has(.nav) header { height: 64px; }
+  body:has(.nav) .site-header { height: 64px; }
   body:has(.nav) .nav { position: relative; gap: 8px; padding: 0 14px; }
   body:has(.nav) .brand { gap: 8px; }
   body:has(.nav) .brand b { font-size: 17px; }

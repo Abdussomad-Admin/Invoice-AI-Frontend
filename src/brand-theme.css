@@ -232,7 +232,7 @@ body:has(.nav) {
   color: #160d3e;
   background: #faf9ff;
 }
-body:has(.nav) header { background: #fff; box-shadow: 0 1px 0 #e8e1fb; }
+body:has(.nav) .site-header { background: #fff; box-shadow: 0 1px 0 #e8e1fb; }
 body:has(.nav) .brandicon { border-width: 2px; border-radius: 12px; color: #7428f5; }
 body:has(.nav) .brand i { color: #7428f5; }
 body:has(.nav) .nav nav button { color: #302454; font-weight: 650; }
