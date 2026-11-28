@@ -6,7 +6,9 @@ let deviceReadyPromise;
 let hybridDeviceReadyPromise;
 
 const HYBRID_CLOUD_MODEL = "gemini-3.8-flash";
+const CLOUD_RECOVERY_MODEL = "gemini-3.5-flash-lite";
 const CLOUD_REQUEST_TIMEOUT_MS = 60_000;
+const CLOUD_RECOVERY_TIMEOUT_MS = 15_000;
 
 const onDeviceOptions = {
   expectedInputs: [{ type: "text", languages: ["en"] }],
@@ -59,6 +61,30 @@ async function getHybridModel() {
   return hybridModelPromise;
 }
 
+async function retryWithCloudRecoveryModel(prompt, onText) {
+  const runtime = await getFirebaseRuntime();
+  const model = runtime.getGenerativeModel(runtime.ai, {
+    mode: runtime.InferenceMode.ONLY_IN_CLOUD,
+    model: CLOUD_RECOVERY_MODEL,
+    generationConfig: { temperature: 0.3, maxOutputTokens: 700 }
+  });
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(new DOMException("The cloud AI request timed out.", "TimeoutError")), CLOUD_RECOVERY_TIMEOUT_MS);
+  let streamedText = "";
+  try {
+    const result = await model.generateContentStream(prompt, { signal: controller.signal });
+    for await (const chunk of result.stream) {
+      const part = chunk.candidates?.flatMap(candidate => candidate.content?.parts || []).map(item => item.text || "").join("") || "";
+      if (part) { streamedText += part; onText?.(streamedText); }
+    }
+    const answer = (await result.response)?.text?.()?.trim() || streamedText.trim();
+    if (!answer) throw new Error("The assistant did not return an answer.");
+    return answer;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
 export async function askFirebaseHybrid(question, onText, onProgress, onDeviceStart) {
   const text = String(question || "").trim();
   if (!text) throw new Error("Type a question first.");
@@ -101,19 +127,35 @@ export async function askFirebaseHybrid(question, onText, onProgress, onDeviceSt
       if (part) { streamedText += part; onText?.(streamedText); }
     }
     const response = await result.response;
-    const answer = response?.text?.()?.trim() || streamedText.trim();
+    let answer = response?.text?.()?.trim() || streamedText.trim();
     if (!answer) throw new Error("The assistant did not return an answer. Please try again.");
     const inferenceSource = String(response?.inferenceSource || "").toUpperCase();
-    const usedOnDevice = inferenceSource.includes("ON_DEVICE");
+    let usedOnDevice = inferenceSource.includes("ON_DEVICE");
+    let recoveredWithCloud = false;
+    if (usedOnDevice && navigator.onLine) {
+      // A hybrid model can choose its local route when the primary cloud model
+      // is temporarily unavailable. Retry a lighter cloud model before settling
+      // for local inference, while keeping the local answer as a safe fallback.
+      onText?.("");
+      try {
+        answer = await retryWithCloudRecoveryModel(prompt, onText);
+        usedOnDevice = false;
+        recoveredWithCloud = true;
+      } catch {
+        onText?.(answer);
+      }
+    }
     return {
       answer,
       mode: usedOnDevice ? "on-device" : "cloud",
-      inferenceSource,
+      inferenceSource: recoveredWithCloud ? "IN_CLOUD" : inferenceSource,
       notice: usedOnDevice
         ? offlineAtStart || !navigator.onLine
           ? "You’re offline, so this general answer was completed on your device. It did not use your saved workspace records."
           : "Firebase AI Logic used Chrome’s local model because cloud AI was unavailable. This answer did not use your saved workspace records."
-        : "Answered online with Firebase AI Logic and Gemini. This general answer did not use your saved workspace records."
+        : recoveredWithCloud
+          ? "Answered online with Firebase AI Logic’s backup Gemini model after the primary cloud model was unavailable. This general answer did not use your saved workspace records."
+          : "Answered online with Firebase AI Logic and Gemini. This general answer did not use your saved workspace records."
     };
   } catch (error) {
     // General questions use cloud Gemini first. A ready local model is only a
